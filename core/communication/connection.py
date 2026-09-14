@@ -1,9 +1,16 @@
 from __future__ import annotations
 
+import secrets
 import time
 from dataclasses import dataclass, field
 from enum import Enum
 from uuid import uuid4
+
+# Temporary host-issued session token: 32 cryptographically random bytes
+# (``secrets.token_urlsafe(32)`` → ~43 chars). Ephemeral, per-connection,
+# never persisted. Distinct from the long-term provisioning credential.
+SESSION_TOKEN_BYTES = 32
+SESSION_TOKEN_ENCODING = "urlsafe-base64"
 
 
 class ConnectionState(str, Enum):
@@ -40,6 +47,10 @@ class ConnectionSession:
     authenticated: bool = False
     last_activity: float = field(default_factory=time.monotonic)
     lease_expires_at: float | None = None
+    # Temporary host-issued session credential for this connection only.
+    # Memory-only: never persisted, rotated every authentication, cleared
+    # on any disconnect/expiry.
+    session_token: str | None = None
     messages_received: int = 0
     messages_sent: int = 0
     state: ConnectionState = ConnectionState.CONNECTED
@@ -67,6 +78,16 @@ class ConnectionSession:
         self.last_activity = current
         self.state = ConnectionState.AUTHENTICATED
 
+    def rotate_session_token(self) -> str:
+        """Mint a fresh cryptographically random temporary session token."""
+        token = secrets.token_urlsafe(SESSION_TOKEN_BYTES)
+        self.session_token = token
+        return token
+
+    def clear_session_token(self) -> None:
+        """Invalidate the temporary session token (disconnect/expiry)."""
+        self.session_token = None
+
     def start_lease(self, lease_seconds: float, now: float | None = None) -> None:
         """Start the authoritative connection lease at authentication time."""
         current = now if now is not None else time.monotonic()
@@ -89,4 +110,9 @@ class ConnectionSession:
         self.state = state
 
 
-__all__ = ["ConnectionSession", "ConnectionState"]
+__all__ = [
+    "ConnectionSession",
+    "ConnectionState",
+    "SESSION_TOKEN_BYTES",
+    "SESSION_TOKEN_ENCODING",
+]

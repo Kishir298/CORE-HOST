@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hmac
 import socket
 import struct
 import threading
@@ -426,6 +427,14 @@ class TcpTransport(Transport):
             self._handlers.clear()
             self._messages_sent = 0
             self._messages_received = 0
+            try:
+                for _sess in list(self._connections.values()):
+                    try:
+                        _sess.clear_session_token()
+                    except Exception:
+                        pass
+            except Exception:
+                pass
             self._connections.clear()
             self._reserved = 0
             self._total_connections = 0
@@ -684,6 +693,10 @@ class TcpTransport(Transport):
         with self._lock:
             session = self._connections.pop(connection_id, None)
             if session is not None:
+                try:
+                    session.clear_session_token()
+                except Exception:
+                    pass
                 session.transition(ConnectionState.CLOSED)
 
     def _close_all_connections(self) -> None:
@@ -933,6 +946,14 @@ class TcpTransport(Transport):
                     with self._lock:
                         self._protocol_failures += 1
                     return
+                # Transport credential: strip the session token before any
+                # application, routing, echo, or peer delivery so it never
+                # leaks into app payloads, forwarded messages, or logs.
+                try:
+                    if isinstance(message.payload, dict):
+                        message.payload.pop("_session_token", None)
+                except Exception:
+                    pass
                 session.messages_received += 1
                 session.touch(self._time())
                 # Device-layer protocol interception. Returns True when the
@@ -1087,6 +1108,10 @@ class TcpTransport(Transport):
             )
             return False
         session.mark_authenticated(str(identity_id), self._time())
+        # Temporary session credential: cryptographically random, per
+        # connection, memory-only. The provisioning credential is used ONLY
+        # to reach this point and is never returned or reused as the session.
+        session_token = session.rotate_session_token()
         session.messages_received += 1
         lease = self._stamp_lease(session)
         self._log_device_auth(
@@ -1104,6 +1129,7 @@ class TcpTransport(Transport):
                 "identity_id": str(identity_id),
                 "protocol_version": negotiated,
                 "connection_id": session.connection_id,
+                "session_token": session_token,
                 "connected_at": lease["connected_at"],
                 "lease_expires_at": lease["lease_expires_at"],
                 "lease_duration_seconds": lease["lease_duration_seconds"],
@@ -1141,6 +1167,26 @@ class TcpTransport(Transport):
             raise MessageError("identity_id mismatch.")
         if message.source != session.identity_id:
             raise MessageError("source mismatch.")
+        # Temporary session binding: the presented session token must match
+        # the active session exactly (constant-time compare). Provisioning
+        # credentials are never accepted here — only the host-issued token.
+        if session.session_token is None:
+            raise MessageError("Session token missing.")
+        presented = None
+        try:
+            if isinstance(message.payload, dict):
+                presented = message.payload.get("_session_token")
+        except Exception:
+            presented = None
+        if not isinstance(presented, str) or not presented:
+            raise MessageError("Session token missing.")
+        try:
+            if not hmac.compare_digest(presented, session.session_token):
+                raise MessageError("Session token mismatch.")
+        except MessageError:
+            raise
+        except Exception:
+            raise MessageError("Session token mismatch.")
 
     # -- device protocol -----------------------------------------------------
 
@@ -1238,14 +1284,23 @@ class TcpTransport(Transport):
         }
 
     def _session_lease_payload(self, session: ConnectionSession) -> dict[str, Any]:
-        """Return the lease triple for the session (restamp only if missing)."""
+        """Return the lease triple + session token for the session.
+
+        Restamps the lease only if missing (registration must NOT restart
+        the authentication-anchored window). The session token is the
+        temporary host-issued credential, never the provisioning secret.
+        """
         if session.connected_iso is None or session.lease_expires_iso is None:
-            return self._stamp_lease(session)
-        return {
-            "connected_at": session.connected_iso,
-            "lease_expires_at": session.lease_expires_iso,
-            "lease_duration_seconds": int(self._lease_seconds),
-        }
+            leased = self._stamp_lease(session)
+        else:
+            leased = {
+                "connected_at": session.connected_iso,
+                "lease_expires_at": session.lease_expires_iso,
+                "lease_duration_seconds": int(self._lease_seconds),
+            }
+        if session.session_token is not None:
+            leased["session_token"] = session.session_token
+        return leased
 
     def _record_lease_expiration(self) -> None:
         with self._lock:
