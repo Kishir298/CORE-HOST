@@ -1,9 +1,14 @@
-# C.O.R.E. — Communication, Organization and Resource Engine
+# C.O.R.E.-HOST — Communication, Organization and Resource Engine (Host)
 
 **Version:** `0.3.0`
 **Status:** **Implementation Complete · Physical LAN Validation Pending**
 **Platform:** Windows 11 host · Python `>=3.10`
-**R.I.S.A.R.M.S. subsystem:** C.O.R.E.
+**R.I.S.A.R.M.S. subsystem:** C.O.R.E.-HOST (server side)
+
+> This repository is the **host/server side** of C.O.R.E. The external-device
+> client lives separately in `Kishir298/CORE-CLIENT` and communicates with
+> this host over TCP+TLS only — it never imports this repository's `core`
+> package.
 
 C.O.R.E. is the lifecycle-aware, transport-agnostic orchestration and communication spine of the **R.I.S.A.R.M.S.** platform.
 
@@ -1036,7 +1041,7 @@ Deprecated APIs are scheduled for removal only in a future breaking version.
 # 30. Project Structure
 
 ```text
-CORE/
+CORE-HOST/
 ├── core/
 │   ├── application/
 │   │   └── CoreApplication
@@ -1100,8 +1105,8 @@ CORE/
 │   └── cli/
 │       └── CLI / foreground runtime
 │
-├── client/
-│   └── external-device client (stdlib only, Option A login)
+│   (External-device client lives in the separate Kishir298/CORE-CLIENT
+│   repository — stdlib only, Option A login. It is not bundled here.)
 │
 ├── config/
 │   ├── core.yaml

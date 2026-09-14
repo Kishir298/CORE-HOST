@@ -129,12 +129,13 @@ Expected: `C.O.R.E. is running.` Leave it running.
 
 ## 7. Mac client setup
 
-The client is stdlib-only (no `core` imports, no extra packages):
+The client lives in the separate `Kishir298/CORE-CLIENT` repository and is
+stdlib-only (no `core` imports, no extra packages). Check it out alongside
+this host repo (as `RISARMS/CORE-CLIENT`) and run it from there:
 
 ```bash
-cd /path/to/CORE
-python3 client/core_device_client.py --help
-# or: python3 -m client --help
+cd /path/to/CORE-CLIENT
+python3 -m client --help
 ```
 
 Save the remembered device (one-time; stores NO secrets):
