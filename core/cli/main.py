@@ -434,7 +434,11 @@ def execute_application(
         print("Identity persisted (offline). Token is stored, never displayed.")
         return 0
 
-    return 0
+    print(
+        "ERROR: unknown command. Run 'py -m core --help' for usage; "
+        "'start' runs the host (default when no command is given)."
+    )
+    return 2
 
 
 def run_application(app: CoreApplication) -> int:
@@ -485,7 +489,9 @@ def main() -> int:
         environment=environment,
     )
 
-    if args.command == "start":
+    if args.command == "start" or args.command is None:
+        # Default invocation (no subcommand) starts the long-running host
+        # so `py -m core --config <file>` never exits silently.
         return run_application(app)
 
     return execute_application(args, app)
