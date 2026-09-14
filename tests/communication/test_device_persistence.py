@@ -55,7 +55,21 @@ def _make_security(ids=None):
     return sm
 
 
+_SESSION_TOKENS: dict[int, str] = {}
+
+
 def _send_msg(sock, msg):
+    try:
+        token = _SESSION_TOKENS.get(sock.fileno())
+        if (
+            token
+            and isinstance(msg.payload, dict)
+            and "_session_token" not in msg.payload
+            and msg.message_type != "CORE_HANDSHAKE"
+        ):
+            msg.payload["_session_token"] = token
+    except Exception:
+        pass
     data = MessageSerializer.serialize(msg).encode("utf-8")
     sock.sendall(struct.pack("!I", len(data)) + data)
 
@@ -93,7 +107,14 @@ def _handshake(sock, device_id):
             identity_id=device_id,
         ),
     )
-    return _recv_msg(sock)
+    resp = _recv_msg(sock)
+    try:
+        token = resp.payload.get("session_token") if isinstance(resp.payload, dict) else None
+        if isinstance(token, str) and token:
+            _SESSION_TOKENS[sock.fileno()] = token
+    except Exception:
+        pass
+    return resp
 
 
 def _register(sock, device_id):

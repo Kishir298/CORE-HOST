@@ -39,16 +39,27 @@ CORE_HANDSHAKE {identity_id, credential, protocol_version, join_name?}
 authentication (TokenAuthenticationProvider for external)
       ↓
 CORE_HANDSHAKE_RESPONSE {authenticated, identity_id, protocol_version,
-  connection_id, connected_at, lease_expires_at, lease_duration_seconds}
+  connection_id, session_token, connected_at, lease_expires_at,
+  lease_duration_seconds}
       ↓
 DEVICE_REGISTER {device_id, device_name, device_type, platform,
-  capabilities, protocol_version, join_name?}
+  capabilities, protocol_version, join_name?, _session_token}
       ↓
 DEVICE_REGISTER_RESPONSE {registered: true, device_id, status: "online",
-  join_name, connected_at, lease_expires_at, lease_duration_seconds}
+  join_name, session_token, connected_at, lease_expires_at,
+  lease_duration_seconds}
       ↓
-application / device messages
+application / device messages (each carrying _session_token)
 ```
+
+`session_token` is a temporary host-issued credential
+(`secrets.token_urlsafe(32)`, ~43 chars), distinct from the long-term
+provisioning credential, which is used ONLY at `CORE_HANDSHAKE` and never
+returned. The session token lives only in the active `ConnectionSession`
+and client RAM, rotates every connection, is validated per message
+(constant-time compare, fail closed), and is destroyed on any
+disconnect/expiry. It is never persisted, logged by default, or delivered
+to peers (stripped before app/routing delivery).
 
 `join_name` is optional in both payloads: clients that send it (current
 `CORE-CLIENT`) get it persisted verbatim; older clients that omit it get a

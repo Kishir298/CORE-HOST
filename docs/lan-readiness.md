@@ -207,46 +207,47 @@ After login the client automatically performs:
 ```text
 TCP connect to <windows-lan-ip>:5000
 TLS handshake (1.2+)
-CORE_HANDSHAKE {identity_id, credential, protocol_version: "0.3.0"}
-CORE_HANDSHAKE_RESPONSE {authenticated: true, ...}
-DEVICE_REGISTER {device_id, device_name, device_type, platform, capabilities, protocol_version}
-DEVICE_REGISTER_RESPONSE {registered: true, device_id, status: "online"}
+CORE_HANDSHAKE {identity_id, credential (provisioning), protocol_version}
+CORE_HANDSHAKE_RESPONSE {authenticated: true, connection_id, session_token,
+  connected_at, lease_expires_at, lease_duration_seconds: 86400}
+DEVICE_REGISTER {device_id, join_name, ..., _session_token}
+DEVICE_REGISTER_RESPONSE {registered: true, device_id, status: "online",
+  join_name, session_token, ...lease triple}
 ```
 
-Expected client output:
-
-```text
-Authenticated (connection_id=<uuid>).
-Registered: {'registered': True, 'device_id': 'mac-01', 'status': 'online'}. Status: online.
-```
+Expected client output: the R.I.S.A.R.M.S. session banner with device,
+`join_name`, ONLINE status, temporary session token, `connection_id`,
+and the 24-hour lease countdown.
 
 On the host, `var/rescs.json` gains a `devices` entry for the Mac
-(identity fields + token; no `connection_id`, no live status).
+(identity fields + provisioning token; no `connection_id`, no session
+token, no live status, no lease timers).
 
 ## 10. Disconnect behavior
 
 Quit the client (`quit` or Ctrl+C): the host marks the Mac `offline`,
-clears `connection_id`, updates `last_seen`. The `devices` entry remains.
-The client prints:
+invalidates the session token, clears `connection_id`, updates
+`last_seen`. The `devices` entry remains. The client prints:
 
 ```text
-Disconnected; login session cleared (device remains remembered).
+Disconnected; session token cleared (device remains remembered).
 ```
 
 ## 11. Reconnect behavior
 
 Launch the client again (login again — Option A), with the same
-`device_id`/`identity_id` + token:
+`device_id`/`identity_id` + provisioning credential:
 
 - authentication succeeds against the persisted identity
-- `DEVICE_REGISTER` restores the same logical record, `online`, with a
-  NEW `connection_id`
+- the host issues a NEW session token + NEW `connection_id` + fresh lease
+- `DEVICE_REGISTER` restores the same logical record, `online`
 - duplicate `DEVICE_REGISTER` while online is rejected with
   `DEVICE_ALREADY_REGISTERED`; a wrong token is rejected and the device
-  stays `offline`
+  stays `offline`; the old session token is invalid
 
 While the client stays open, typing `reconnect` re-establishes the
-session over a new `connection_id` without re-entering anything.
+session over a new `connection_id` + new session token + new lease
+without re-entering anything. `session` shows live state.
 
 ## 12. C.O.R.E. restart behavior
 
@@ -259,8 +260,10 @@ Shut C.O.R.E. down and start it again **before** the Mac reconnects:
 ## 13. Option A login behavior (remembered device ≠ login session)
 
 Persistent (`~/.risarms-device.json`): `device_id`, `identity_id`,
-endpoint, non-secret metadata. Ephemeral (memory only): token, socket,
-`connection_id`, auth state.
+`join_name`, endpoint, non-secret metadata. Ephemeral (memory only):
+provisioning credential, session token, socket, `connection_id`, auth
+state, lease tracking. The session token is displayed while connected
+but never persisted.
 
 - App open → session stays authenticated (reconnect works).
 - Full app shutdown → session destroyed, connection closed cleanly,
@@ -270,8 +273,11 @@ endpoint, non-secret metadata. Ephemeral (memory only): token, socket,
 
  ## Validation checklist (fill in during the physical test)
 
- - [ ] TLS handshake succeeds from Mac to Windows
- - [ ] `CORE_HANDSHAKE_RESPONSE.authenticated == true`
+  - [ ] TLS handshake succeeds from Mac to Windows
+  - [ ] `CORE_HANDSHAKE_RESPONSE.authenticated == true` with `session_token`
+  - [ ] Session banner shows token + `connection_id` + 24h countdown
+  - [ ] `~/.risarms-device.json` contains NO session token/credential
+  - [ ] `reconnect` yields new token + new `connection_id` + fresh lease
  - [ ] Host log shows the login attempt with `device_id` + `join_name`
        (token visible only with `log_external_device_tokens: true`)
  - [ ] Host log shows `External device authenticated` with `connection_id`
