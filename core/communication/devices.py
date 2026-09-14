@@ -37,6 +37,25 @@ class DeviceRegistryError(Exception):
         self.code = code
 
 
+def _sanitize_join_part(value: str) -> str:
+    """Keep a join-name part human-readable (mirrors the client derivation)."""
+    cleaned = "".join(
+        c if (c.isalnum() or c in ("-", "_", ".")) else "-" for c in value.strip()
+    )
+    while "--" in cleaned:
+        cleaned = cleaned.replace("--", "-")
+    return cleaned.strip("-._") or "device"
+
+
+def derive_join_name(device_name: str, device_id: str) -> str:
+    """Derive the stable ``<device-name>-<short-device-id>`` join name.
+
+    Used as the server-side fallback when a client registers without one
+    (e.g. older v0.3.0 clients), keeping discovery labels stable.
+    """
+    return f"{_sanitize_join_part(device_name or device_id)}-{_sanitize_join_part(device_id)}"[:64]
+
+
 @dataclass
 class DeviceRecord:
     """Single authoritative record for one ``device_id``."""
@@ -54,6 +73,7 @@ class DeviceRecord:
         default_factory=lambda: datetime.now(timezone.utc)
     )
     protocol_version: str = "0.3.0"
+    join_name: str = ""
 
     def touch(self, now: datetime | None = None) -> None:
         """Update last_seen to now (UTC)."""
@@ -63,6 +83,7 @@ class DeviceRecord:
         """Discovery shape required by DEVICE_DISCOVER_RESPONSE."""
         return {
             "device_id": self.device_id,
+            "join_name": self.join_name or derive_join_name(self.device_name, self.device_id),
             "device_name": self.device_name,
             "device_type": self.device_type,
             "platform": self.platform,
@@ -79,6 +100,7 @@ class DeviceRecord:
         """Return a complete serializable representation (persistence)."""
         return {
             "device_id": self.device_id,
+            "join_name": self.join_name,
             "device_name": self.device_name,
             "device_type": self.device_type,
             "platform": self.platform,
@@ -122,6 +144,12 @@ class DeviceRecord:
             data.get("registered_at"), "registered_at"
         ) or datetime.now(timezone.utc)
         capabilities = data.get("capabilities", [])
+        stored_join = data.get("join_name")
+        join_name = (
+            stored_join.strip()
+            if isinstance(stored_join, str) and stored_join.strip()
+            else derive_join_name(payload["device_name"], payload["device_id"])
+        )
         return cls(
             device_id=payload["device_id"],
             device_name=payload["device_name"],
@@ -134,6 +162,7 @@ class DeviceRecord:
             last_seen=last_seen,
             registered_at=registered_at,
             protocol_version=payload["protocol_version"],
+            join_name=join_name[:64],
         )
 
     def to_persistent_dict(
@@ -149,6 +178,7 @@ class DeviceRecord:
         """
         return {
             "device_id": self.device_id,
+            "join_name": self.join_name,
             "device_name": self.device_name,
             "device_type": self.device_type,
             "platform": self.platform,
@@ -221,6 +251,7 @@ class DeviceRegistry:
         protocol_version: str = "0.3.0",
         identity_id: str | None = None,
         connection_id: str | None = None,
+        join_name: str | None = None,
     ) -> DeviceRecord:
         """Atomically register (or re-register after disconnect) a device.
 
@@ -228,6 +259,9 @@ class DeviceRegistry:
         A duplicate active registration raises ``DeviceRegistryError`` with
         code ``DEVICE_ALREADY_REGISTERED``. Reconnect after the previous
         connection went offline replaces the binding and returns online.
+        ``join_name`` is optional: absent/blank values fall back to the
+        ``<device-name>-<short-device-id>`` derivation so older clients
+        keep working; a provided value is kept verbatim (stripped).
         """
         payload = {
             "device_id": device_id,
@@ -241,6 +275,11 @@ class DeviceRegistry:
         if code is not None:
             raise DeviceRegistryError(code, msg or "Invalid registration.")
         now = datetime.now(timezone.utc)
+        resolved_join = (
+            join_name.strip()
+            if isinstance(join_name, str) and join_name.strip()
+            else derive_join_name(device_name, device_id)
+        )[:64]
         with self._lock:
             existing = self._devices.get(device_id)
             if existing is not None and existing.status == DEVICE_STATUS_ONLINE:
@@ -258,6 +297,12 @@ class DeviceRegistry:
                 existing.connection_id = connection_id
                 existing.status = DEVICE_STATUS_ONLINE
                 existing.last_seen = now
+                # A reconnect keeps the established join_name unless the
+                # client explicitly provides a (non-blank) new one.
+                if isinstance(join_name, str) and join_name.strip():
+                    existing.join_name = resolved_join
+                elif not existing.join_name:
+                    existing.join_name = resolved_join
                 record = existing
             else:
                 record = DeviceRecord(
@@ -272,6 +317,7 @@ class DeviceRegistry:
                     last_seen=now,
                     registered_at=now,
                     protocol_version=protocol_version,
+                    join_name=resolved_join,
                 )
                 self._devices[device_id] = record
             self._mirror_to_resources(record)
@@ -298,6 +344,7 @@ class DeviceRegistry:
             protocol_version=payload.get("protocol_version", "0.3.0"),
             identity_id=identity_id,
             connection_id=connection_id,
+            join_name=payload.get("join_name"),
         )
 
     # -- persistence ---------------------------------------------------------

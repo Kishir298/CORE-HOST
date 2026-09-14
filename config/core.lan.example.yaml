@@ -21,12 +21,19 @@ security:
   # External devices REQUIRE the token provider. Never use existence here.
   provider: token
   enforce_authorization: false
+  # Plaintext logging of external-device login tokens (development only).
+  # Default false (tokens appear as <REDACTED>); set true explicitly for
+  # physical LAN testing. Tokens are NEVER persisted regardless of this flag.
+  log_external_device_tokens: false
 
 communication:
   enabled: true
   transport: tcp
   host: "0.0.0.0"
   port: 5000
+  # Authoritative per-connection lease in seconds (24 hours). The timer
+  # starts at successful authentication of each client connection.
+  connection_lease_seconds: 86400
   tls:
     enabled: true
     certfile: "C:\\path\\to\\core.crt"

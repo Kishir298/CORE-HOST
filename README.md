@@ -1193,7 +1193,7 @@ The v0.3.0 implementation contains comprehensive automated coverage across:
 The repository's current documented result is:
 
 ```text
-649 passed
+670 passed
 ```
 
 The authoritative local verification command is:

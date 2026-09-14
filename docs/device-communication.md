@@ -34,18 +34,28 @@ TCP connection
       ↓
 TLS if external (0.0.0.0 requires TLS 1.2+, fail closed)
       ↓
-CORE_HANDSHAKE {identity_id, credential, protocol_version}
+CORE_HANDSHAKE {identity_id, credential, protocol_version, join_name?}
       ↓
 authentication (TokenAuthenticationProvider for external)
       ↓
-CORE_HANDSHAKE_RESPONSE {authenticated, identity_id, protocol_version, connection_id}
+CORE_HANDSHAKE_RESPONSE {authenticated, identity_id, protocol_version,
+  connection_id, connected_at, lease_expires_at, lease_duration_seconds}
       ↓
-DEVICE_REGISTER {device_id, device_name, device_type, platform, capabilities, protocol_version}
+DEVICE_REGISTER {device_id, device_name, device_type, platform,
+  capabilities, protocol_version, join_name?}
       ↓
-DEVICE_REGISTER_RESPONSE {registered: true, device_id, status: "online"}
+DEVICE_REGISTER_RESPONSE {registered: true, device_id, status: "online",
+  join_name, connected_at, lease_expires_at, lease_duration_seconds}
       ↓
 application / device messages
 ```
+
+`join_name` is optional in both payloads: clients that send it (current
+`CORE-CLIENT`) get it persisted verbatim; older clients that omit it get a
+server-derived `<device-name>-<short-device-id>` fallback, so the protocol
+stays v0.3.0 compatible. It is a display label only — identity binding
+(`identity_id == device_id == source`) is unchanged and a foreign
+`join_name` never grants another device's identity.
 
 `DEVICE_REGISTER` is only accepted after authentication, and the
 authenticated `identity_id` must equal the registering `device_id`.
@@ -55,12 +65,33 @@ legacy behavior.
 
 ## Identity model
 
-`device_id` (stable device identity), `identity_id` (security identity)
-and `connection_id` (one live socket session) are distinct. A reconnecting
-device keeps its `device_id` and receives a new `connection_id`. Only one
+`device_id` (stable device identity), `identity_id` (security identity),
+`join_name` (stable human-readable label, e.g. `MacBook-mac-01`) and
+`connection_id` (one live socket session) are distinct. A reconnecting
+device keeps its `device_id`, `identity_id` and `join_name`, and receives
+a new `connection_id` plus a new 24-hour lease. Only one
 active connection may represent a `device_id`; a duplicate active
 registration is rejected with `DEVICE_ALREADY_REGISTERED` without touching
 the live binding.
+
+Persistent device identity (`device_id`, `identity_id`, `join_name`,
+metadata, credential material) survives restarts via R.E.S.C.S. Ephemeral
+session state (`connection_id`, live socket, lease timers) never persists:
+restored devices always start `offline` with no connection.
+
+## Connection lease (host-authoritative, 24 hours)
+
+Every authenticated connection starts a lease
+(`CONNECTION_LEASE_SECONDS`, default `86400`, configurable via
+`communication.connection_lease_seconds`) at the moment authentication
+succeeds — never at provisioning, host start, or record creation. The
+triple `connected_at / lease_expires_at / lease_duration_seconds` is
+returned in both handshake and register responses for client-side
+tracking. At expiry the host forcibly closes the connection through the
+standard cleanup path (device `offline`, `connection_id` cleared,
+`DEVICE_DISCONNECTED` emitted, slot released); an expired connection can
+no longer communicate. Stale-expiry safety rides the existing
+`connection_id` guards, so an old session can never offline a newer one.
 
 ## Message types
 
@@ -136,7 +167,8 @@ online_devices, offline_devices, device_registration_failures,
 device_routing_failures, device_discovery_requests,
 device_messages_routed`. Existing TCP metrics (`active_connections,
 total_connections, rejected_connections, authentication_failures,
-protocol_failures, messages_received/sent`) are unchanged. Registration
+protocol_failures, messages_received/sent`) are unchanged, plus
+`lease_expirations` counting host-enforced lease closures. Registration
 and presence transitions emit `DEVICE_CONNECTED` / `DEVICE_DISCONNECTED`
 on the existing event bus; a `devices` health check reports
 registered/online counts. `Router.route_to_device()` adds registry-backed
@@ -170,10 +202,10 @@ DeviceRegistry (authoritative, one record per device_id)
 R.E.S.C.S. persistence (dedicated device records)
 ```
 
-Persisted identity fields: `device_id, device_name, device_type,
+Persisted identity fields: `device_id, join_name, device_name, device_type,
 platform, capabilities, identity_id, protocol_version, registered_at,
 last_seen, permissions, token`. Runtime fields (`status`,
-`connection_id`) are never persisted.
+`connection_id`, lease timers) are never persisted.
 
 On startup C.O.R.E. restores every persisted identity as `offline` with
 `connection_id=None`, mirrors it into the `ResourceRegistry` (runtime

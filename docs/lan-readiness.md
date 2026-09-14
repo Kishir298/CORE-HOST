@@ -119,6 +119,32 @@ Identity persisted (offline). Token is stored, never displayed.
 Give the same token to the Mac user out-of-band. Re-running the command
 rotates the stored token.
 
+## 5b. Optional: plaintext token logging (development testing only)
+
+By default the host logs login attempts as `token=<REDACTED>`. For
+physical testing, where watching the actual token in the Windows log is
+useful, enable it explicitly in `config\core.lan.yaml` (never commit this
+file with real paths):
+
+```yaml
+security:
+  log_external_device_tokens: true
+```
+
+```text
+[INFO] External device login attempt
+       device_id=mac-01
+       join_name=MacBook-mac-01
+       token=<TOKEN>
+```
+
+SECURITY WARNING: plaintext tokens in logs can leak via log files,
+screen sharing, or crash reports. Keep this `false` everywhere except
+the active physical test, and rotate the device token afterwards with
+`provision-device`. Tokens are never persisted to R.E.S.C.S., the device
+registry snapshot, or the client remembered-device file regardless of
+this flag.
+
 ## 6. Start C.O.R.E. (Windows)
 
 ```powershell
@@ -238,18 +264,27 @@ endpoint, non-secret metadata. Ephemeral (memory only): token, socket,
 - Next launch → remembered device loads, login is required again.
 - The device is NOT treated as brand-new: no re-registration from scratch.
 
-## Validation checklist (fill in during the physical test)
+ ## Validation checklist (fill in during the physical test)
 
-- [ ] TLS handshake succeeds from Mac to Windows
-- [ ] `CORE_HANDSHAKE_RESPONSE.authenticated == true`
-- [ ] First `DEVICE_REGISTER` returns `status: online`
-- [ ] `var/rescs.json` contains the Mac identity (no connection state)
-- [ ] Mac Wi-Fi drop → host shows `offline`, record retained
-- [ ] C.O.R.E. restart → Mac restored as `offline`
-- [ ] Mac reconnect → `online`, same `device_id`, new `connection_id`
-- [ ] Wrong credential → rejected, stays `offline`
-- [ ] Claiming another `device_id` → rejected
-- [ ] Client restart → login required again, device still remembered
+ - [ ] TLS handshake succeeds from Mac to Windows
+ - [ ] `CORE_HANDSHAKE_RESPONSE.authenticated == true`
+ - [ ] Host log shows the login attempt with `device_id` + `join_name`
+       (token visible only with `log_external_device_tokens: true`)
+ - [ ] Host log shows `External device authenticated` with `connection_id`
+ - [ ] First `DEVICE_REGISTER` returns `status: online` with `join_name`
+ - [ ] `var/rescs.json` contains the Mac identity incl. `join_name`
+       (no connection state, no lease timers)
+ - [ ] Handshake/register responses carry `connected_at`,
+       `lease_expires_at`, `lease_duration_seconds = 86400`
+ - [ ] Mac Wi-Fi drop → host shows `offline`, record retained
+ - [ ] C.O.R.E. restart → Mac restored as `offline` with `join_name` intact
+ - [ ] Mac reconnect → `online`, same `device_id`/`identity_id`/`join_name`,
+       new `connection_id`, new lease
+ - [ ] Lease expiry is covered by automated fake-clock tests
+       (do not wait 24 hours physically)
+ - [ ] Wrong credential → rejected, stays `offline`
+ - [ ] Claiming another `device_id` → rejected
+ - [ ] Client restart → login required again, device still remembered
 
 ## Security notes
 

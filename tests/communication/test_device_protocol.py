@@ -247,11 +247,13 @@ def test_successful_registration():
         _handshake(s, "device-a")
         resp, req = _register(s, "device-a", name="Device A")
         assert resp.message_type == DEVICE_REGISTER_RESPONSE
-        assert resp.payload == {
-            "registered": True,
-            "device_id": "device-a",
-            "status": "online",
-        }
+        assert resp.payload["registered"] is True
+        assert resp.payload["device_id"] == "device-a"
+        assert resp.payload["status"] == "online"
+        assert resp.payload["join_name"] == "Device-A-device-a"
+        assert resp.payload["lease_duration_seconds"] == 24 * 60 * 60
+        assert resp.payload["connected_at"]
+        assert resp.payload["lease_expires_at"]
         assert resp.request_id == req.message_id
         assert t.registered_devices() == 1
         assert t.online_devices() == 1

@@ -668,6 +668,16 @@ class CoreApplication:
                 device_registry=self.device_registry,
                 event_bus=self.events,
                 data_organizer=self.data_organizer,
+                connection_lease_seconds=self.configuration.get(
+                    "communication.connection_lease_seconds", None
+                ),
+                log_external_tokens=bool(
+                    self.configuration.get(
+                        "security.log_external_device_tokens", False
+                    )
+                    is True
+                ),
+                logger=self.logger,
             )
 
             # Preserve any already-registered endpoints by migrating them.

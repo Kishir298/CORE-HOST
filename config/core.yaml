@@ -11,6 +11,9 @@ security:
   # Authorization enforcement on service operations is opt-in. It is
   # inactive until a cross-system security boundary actually exists.
   enforce_authorization: false
+  # Plaintext logging of external-device tokens. ALWAYS false in normal
+  # configurations; enable explicitly only for physical dev testing.
+  log_external_device_tokens: false
 
 communication:
   enabled: true

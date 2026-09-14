@@ -134,6 +134,14 @@ def validate_registration_payload(payload: object) -> tuple[str | None, str | No
         return DEVICE_REGISTRATION_FAILED, "Missing protocol_version."
     if not is_supported_protocol_version(payload.get("protocol_version")):
         return DEVICE_REGISTRATION_FAILED, "Unsupported protocol version."
+    # join_name is optional (older clients omit it and the host derives a
+    # fallback), but when present it must be a sane human-readable label.
+    if "join_name" in payload and payload.get("join_name") is not None:
+        join_name = payload.get("join_name")
+        if not isinstance(join_name, str) or not join_name.strip():
+            return DEVICE_REGISTRATION_FAILED, "Invalid join_name."
+        if len(join_name.strip()) > 64:
+            return DEVICE_REGISTRATION_FAILED, "Invalid join_name."
     return None, None
 
 

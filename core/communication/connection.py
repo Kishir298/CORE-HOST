@@ -32,9 +32,14 @@ class ConnectionSession:
     remote_address: str = ""
     connected_at: float = field(default_factory=time.monotonic)
     authenticated_at: float | None = None
+    # Wall-clock display strings for the lease triple sent to clients.
+    # Enforcement always uses the monotonic ``lease_expires_at`` above.
+    connected_iso: str | None = None
+    lease_expires_iso: str | None = None
     identity_id: str | None = None
     authenticated: bool = False
     last_activity: float = field(default_factory=time.monotonic)
+    lease_expires_at: float | None = None
     messages_received: int = 0
     messages_sent: int = 0
     state: ConnectionState = ConnectionState.CONNECTED
@@ -61,6 +66,23 @@ class ConnectionSession:
         self.authenticated_at = current
         self.last_activity = current
         self.state = ConnectionState.AUTHENTICATED
+
+    def start_lease(self, lease_seconds: float, now: float | None = None) -> None:
+        """Start the authoritative connection lease at authentication time."""
+        current = now if now is not None else time.monotonic()
+        self.lease_expires_at = current + max(0.0, float(lease_seconds))
+
+    def lease_remaining(self, now: float | None = None) -> float | None:
+        """Return seconds until lease expiry, or None when no lease runs."""
+        if self.lease_expires_at is None:
+            return None
+        current = now if now is not None else time.monotonic()
+        return self.lease_expires_at - current
+
+    def is_lease_expired(self, now: float | None = None) -> bool:
+        """Return whether an active lease has expired (no lease: False)."""
+        remaining = self.lease_remaining(now)
+        return remaining is not None and remaining <= 0
 
     def transition(self, state: ConnectionState) -> None:
         """Move the session to a new lifecycle state."""

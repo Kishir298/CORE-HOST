@@ -135,11 +135,15 @@ class DeviceClient:
         _send_msg(self.sock, msg)
         resp = _recv_msg(self.sock)
         assert resp.message_type == DEVICE_REGISTER_RESPONSE
-        assert resp.payload == {
-            "registered": True,
-            "device_id": self.device_id,
-            "status": "online",
-        }
+        assert resp.payload["registered"] is True
+        assert resp.payload["device_id"] == self.device_id
+        assert resp.payload["status"] == "online"
+        assert resp.payload["join_name"] == (
+            NAMES[self.device_id].replace(" ", "-") + "-" + self.device_id
+        )
+        assert resp.payload["lease_duration_seconds"] == 24 * 60 * 60
+        assert resp.payload["connected_at"]
+        assert resp.payload["lease_expires_at"]
         assert resp.request_id == msg.message_id
         return resp
 

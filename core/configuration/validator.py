@@ -231,6 +231,20 @@ class ConfigurationValidator:
                             errors.append("communication.tls.cafile must be a string.")
                         if "require_client_cert" in tls and not isinstance(tls["require_client_cert"], bool):
                             errors.append("communication.tls.require_client_cert must be a boolean.")
+                # Connection lease: optional positive number of seconds.
+                if "connection_lease_seconds" in comm:
+                    lease = comm["connection_lease_seconds"]
+                    try:
+                        lease_val = float(lease)  # type: ignore
+                    except (TypeError, ValueError):
+                        errors.append(
+                            "communication.connection_lease_seconds must be a positive number."
+                        )
+                    else:
+                        if lease_val <= 0:
+                            errors.append(
+                                "communication.connection_lease_seconds must be a positive number."
+                            )
 
         # Validate security section if present
         if config.has("security"):
@@ -246,6 +260,13 @@ class ConfigurationValidator:
                     sec["provider"], str
                 ):
                     errors.append("security.provider must be a string.")
+                # Plaintext token logging is strictly opt-in (dev testing).
+                if "log_external_device_tokens" in sec and not isinstance(
+                    sec["log_external_device_tokens"], bool
+                ):
+                    errors.append(
+                        "security.log_external_device_tokens must be a boolean."
+                    )
                 if "authentication" in sec:
                     auth = sec["authentication"]
                     if isinstance(auth, dict) and "provider" in auth:

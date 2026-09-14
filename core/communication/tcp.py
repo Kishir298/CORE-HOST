@@ -4,7 +4,7 @@ import socket
 import struct
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable
 
@@ -48,6 +48,11 @@ HEADER_SIZE = 4
 TLS_HANDSHAKE_TIMEOUT = 5.0
 IDLE_CONNECTION_TIMEOUT = 300.0
 
+# Authoritative connection lease for external-device sessions (24 hours).
+# Configurable via ``communication.connection_lease_seconds``; this constant
+# is the single default path so the value is never hardcoded twice.
+CONNECTION_LEASE_SECONDS = 24 * 60 * 60
+
 HANDSHAKE_TYPE = "CORE_HANDSHAKE"
 HANDSHAKE_RESPONSE_TYPE = "CORE_HANDSHAKE_RESPONSE"
 
@@ -89,6 +94,9 @@ class TcpTransport(Transport):
         device_registry: DeviceRegistry | None = None,
         event_bus: Any | None = None,
         data_organizer: Any | None = None,
+        connection_lease_seconds: int | float | None = None,
+        log_external_tokens: bool = False,
+        logger: Any | None = None,
     ) -> None:
         from threading import RLock
 
@@ -193,6 +201,30 @@ class TcpTransport(Transport):
         self._device_routing_failures = 0
         self._device_discovery_requests = 0
         self._device_messages_routed = 0
+        self._lease_expirations = 0
+
+        # Authoritative connection lease (host-enforced, per connection).
+        # Falls back to CONNECTION_LEASE_SECONDS when unset/invalid.
+        try:
+            lease_value = (
+                float(connection_lease_seconds)
+                if connection_lease_seconds is not None
+                else float(CONNECTION_LEASE_SECONDS)
+            )
+        except (TypeError, ValueError):
+            lease_value = float(CONNECTION_LEASE_SECONDS)
+        if lease_value <= 0:
+            lease_value = float(CONNECTION_LEASE_SECONDS)
+        self._lease_seconds = lease_value
+
+        # Plaintext token logging is strictly opt-in (development only).
+        self._log_external_tokens = bool(log_external_tokens)
+        if logger is not None:
+            self._logger = logger
+        else:  # pragma: no cover - production path injects CoreLogger
+            import logging as _logging
+
+            self._logger = _logging.getLogger("core.communication.tcp")
 
         self._server_socket: socket.socket | None = None
         self._server_thread: threading.Thread | None = None
@@ -405,6 +437,7 @@ class TcpTransport(Transport):
             self._device_routing_failures = 0
             self._device_discovery_requests = 0
             self._device_messages_routed = 0
+            self._lease_expirations = 0
         try:
             self._devices.clear()
         except Exception:
@@ -497,6 +530,7 @@ class TcpTransport(Transport):
             registration_failures = self._device_registration_failures
             discovery_requests = self._device_discovery_requests
             messages_routed = self._device_messages_routed
+            lease_expirations = self._lease_expirations
         snapshot = {
             "registered_devices": self.registered_devices(),
             "online_devices": self.online_devices(),
@@ -505,6 +539,7 @@ class TcpTransport(Transport):
             "device_routing_failures": routing_failures,
             "device_discovery_requests": discovery_requests,
             "device_messages_routed": messages_routed,
+            "lease_expirations": lease_expirations,
         }
         organizer = self._data_organizer
         metrics_fn = getattr(organizer, "data_metrics", None)
@@ -992,15 +1027,34 @@ class TcpTransport(Transport):
         # alone never authenticates an external connection.
         provider = getattr(self._security_manager, "provider", None)
         provider_name = type(provider).__name__ if provider is not None else ""
+        join_label = self._join_label(payload, str(identity_id))
+        self._log_device_auth(
+            "attempt",
+            device_id=str(identity_id),
+            join_name=join_label,
+            credential=credential,
+        )
         if provider_name == "ExistenceAuthenticationProvider":
             with self._lock:
                 self._authentication_failures += 1
+            self._log_device_auth(
+                "failed",
+                device_id=str(identity_id),
+                join_name=join_label,
+                credential=credential,
+            )
             return False
         try:
             identity = self._security_manager.get_identity(str(identity_id))
         except Exception:
             with self._lock:
                 self._authentication_failures += 1
+            self._log_device_auth(
+                "failed",
+                device_id=str(identity_id),
+                join_name=join_label,
+                credential=credential,
+            )
             return False
         metadata = getattr(identity, "metadata", {}) or {}
         try:
@@ -1013,15 +1067,34 @@ class TcpTransport(Transport):
         if not has_token:
             with self._lock:
                 self._authentication_failures += 1
+            self._log_device_auth(
+                "failed",
+                device_id=str(identity_id),
+                join_name=join_label,
+                credential=credential,
+            )
             return False
         try:
             self._security_manager.authenticate(str(identity_id), credential)
         except Exception:
             with self._lock:
                 self._authentication_failures += 1
+            self._log_device_auth(
+                "failed",
+                device_id=str(identity_id),
+                join_name=join_label,
+                credential=credential,
+            )
             return False
         session.mark_authenticated(str(identity_id), self._time())
         session.messages_received += 1
+        lease = self._stamp_lease(session)
+        self._log_device_auth(
+            "success",
+            device_id=str(identity_id),
+            join_name=join_label,
+            connection_id=session.connection_id,
+        )
         response = Message(
             source="core",
             destination=str(identity_id),
@@ -1031,6 +1104,9 @@ class TcpTransport(Transport):
                 "identity_id": str(identity_id),
                 "protocol_version": negotiated,
                 "connection_id": session.connection_id,
+                "connected_at": lease["connected_at"],
+                "lease_expires_at": lease["lease_expires_at"],
+                "lease_duration_seconds": lease["lease_duration_seconds"],
             },
             identity_id=str(identity_id),
         )
@@ -1084,6 +1160,96 @@ class TcpTransport(Transport):
     def _record_routing_failure(self) -> None:
         with self._lock:
             self._device_routing_failures += 1
+
+    # -- external-device auth logging + connection lease -------------------
+
+    def _token_display(self, credential: Any) -> str:
+        """Render a credential for logs: plaintext only when explicitly enabled."""
+        if (
+            self._log_external_tokens
+            and isinstance(credential, str)
+            and credential
+        ):
+            return credential
+        return "<REDACTED>"
+
+    @staticmethod
+    def _join_label(payload: dict | None, identity_id: str) -> str:
+        """Best-effort display label for auth logs (never a trust decision)."""
+        if isinstance(payload, dict):
+            candidate = payload.get("join_name")
+            if isinstance(candidate, str) and candidate.strip():
+                return candidate.strip()[:64]
+        return str(identity_id)
+
+    def _log_device_auth(
+        self,
+        outcome: str,
+        *,
+        device_id: str,
+        join_name: str,
+        credential: Any = None,
+        connection_id: str | None = None,
+    ) -> None:
+        """Log an external-device authentication attempt/result.
+
+        The supplied token appears in plaintext ONLY when
+        ``log_external_tokens`` is enabled (development testing); otherwise
+        it is rendered as ``<REDACTED>``. Never raises.
+        """
+        try:
+            token = self._token_display(credential)
+            if outcome == "attempt":
+                self._logger.info(
+                    "External device login attempt "
+                    f"device_id={device_id} join_name={join_name} token={token}"
+                )
+            elif outcome == "failed":
+                self._logger.warning(
+                    "External device authentication failed "
+                    f"device_id={device_id} join_name={join_name} token={token}"
+                )
+            elif outcome == "success":
+                self._logger.info(
+                    "External device authenticated "
+                    f"device_id={device_id} join_name={join_name} "
+                    f"connection_id={connection_id}"
+                )
+        except Exception:
+            pass
+
+    def _stamp_lease(self, session: ConnectionSession) -> dict[str, Any]:
+        """Start the authoritative lease at authentication and describe it.
+
+        Enforcement uses the monotonic ``session.lease_expires_at``; the
+        returned ISO wall-clock triple is what clients track locally.
+        """
+        now = self._time()
+        session.start_lease(self._lease_seconds, now)
+        wall = datetime.now(timezone.utc)
+        connected_iso = wall.isoformat()
+        expires_iso = (wall + timedelta(seconds=self._lease_seconds)).isoformat()
+        session.connected_iso = connected_iso
+        session.lease_expires_iso = expires_iso
+        return {
+            "connected_at": connected_iso,
+            "lease_expires_at": expires_iso,
+            "lease_duration_seconds": int(self._lease_seconds),
+        }
+
+    def _session_lease_payload(self, session: ConnectionSession) -> dict[str, Any]:
+        """Return the lease triple for the session (restamp only if missing)."""
+        if session.connected_iso is None or session.lease_expires_iso is None:
+            return self._stamp_lease(session)
+        return {
+            "connected_at": session.connected_iso,
+            "lease_expires_at": session.lease_expires_iso,
+            "lease_duration_seconds": int(self._lease_seconds),
+        }
+
+    def _record_lease_expiration(self) -> None:
+        with self._lock:
+            self._lease_expirations += 1
 
     def _emit_device_event(
         self, event_type: str, device_id: str, extra: dict | None = None
@@ -1309,6 +1475,8 @@ class TcpTransport(Transport):
                 "registered": True,
                 "device_id": device_id,
                 "status": DEVICE_STATUS_ONLINE,
+                "join_name": record.join_name,
+                **self._session_lease_payload(session),
             },
             request_id=message.message_id,
             identity_id=message.identity_id,
@@ -1648,11 +1816,23 @@ class TcpTransport(Transport):
     # -- framing I/O -------------------------------------------------------
 
     def _wait_readable(self, conn: socket.socket, session: ConnectionSession) -> bool:
-        """Wait until data is available or idle timeout expires."""
+        """Wait until data is available, idle timeout, or lease expiry.
+
+        Lease expiry is authoritative: an expired connection never becomes
+        readable again and the serve loop tears it down (offline + event +
+        socket close) via the standard cleanup path.
+        """
         import select
 
         while not self._stop_event.is_set():
-            remaining = IDLE_CONNECTION_TIMEOUT - (self._time() - session.last_activity)
+            now = self._time()
+            if session.is_lease_expired(now):
+                self._record_lease_expiration()
+                return False
+            remaining = IDLE_CONNECTION_TIMEOUT - (now - session.last_activity)
+            lease_remaining = session.lease_remaining(now)
+            if lease_remaining is not None and lease_remaining < remaining:
+                remaining = lease_remaining
             if remaining <= 0:
                 return False
             try:
@@ -1684,14 +1864,20 @@ class TcpTransport(Transport):
         buf = b""
         while len(buf) < n:
             if session is not None:
+                if session.is_lease_expired(self._time()):
+                    self._record_lease_expiration()
+                    return None
                 if self._time() - session.last_activity > IDLE_CONNECTION_TIMEOUT:
                     return None
             try:
                 chunk = conn.recv(n - len(buf))
             except socket.timeout:
                 if session is not None and (
-                    self._time() - session.last_activity > IDLE_CONNECTION_TIMEOUT
+                    session.is_lease_expired(self._time())
+                    or self._time() - session.last_activity > IDLE_CONNECTION_TIMEOUT
                 ):
+                    if session.is_lease_expired(self._time()):
+                        self._record_lease_expiration()
                     return None
                 continue
             except OSError:
