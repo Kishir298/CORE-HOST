@@ -228,3 +228,53 @@ def test_execute_application_agents(capsys):
     result = execute_application(args, app)
     assert result == 0
     assert "Agents:" in capsys.readouterr().out
+
+
+def test_parser_no_subcommand_is_none():
+    parser = create_parser()
+    args = parser.parse_args([])
+    assert args.command is None
+
+
+def test_main_no_subcommand_starts_host(monkeypatch):
+    import core.cli.main as cli_main
+
+    called = {}
+
+    def fake_run(app):
+        called["ran"] = True
+        return 0
+
+    monkeypatch.setattr(cli_main, "run_application", fake_run)
+    monkeypatch.setattr(
+        "sys.argv", ["core", "--config", "config/core.yaml"]
+    )
+    assert cli_main.main() == 0
+    assert called.get("ran") is True
+
+
+def test_main_start_still_starts_host(monkeypatch):
+    import core.cli.main as cli_main
+
+    called = {}
+
+    def fake_run(app):
+        called["ran"] = True
+        return 0
+
+    monkeypatch.setattr(cli_main, "run_application", fake_run)
+    monkeypatch.setattr(
+        "sys.argv", ["core", "--config", "config/core.yaml", "start"]
+    )
+    assert cli_main.main() == 0
+    assert called.get("ran") is True
+
+
+def test_execute_application_unknown_is_actionable_error(capsys):
+    import argparse
+
+    app = CoreApplication()
+    args = argparse.Namespace(command="bogus-cmd")
+    result = execute_application(args, app)
+    assert result == 2
+    assert "unknown command" in capsys.readouterr().out.lower()

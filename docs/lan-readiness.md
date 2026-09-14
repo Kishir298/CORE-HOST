@@ -151,7 +151,11 @@ this flag.
 py -m core --config config\core.lan.yaml start
 ```
 
-Expected: `C.O.R.E. is running.` Leave it running.
+(`start` may be omitted — running `py -m core --config config\core.lan.yaml`
+with no subcommand also starts the host. Any other unknown command prints
+an actionable error instead of exiting silently.)
+
+Expected: `C.O.R.E. is running.` Leave it running (Ctrl+C to stop).
 
 ## 7. Mac client setup
 
