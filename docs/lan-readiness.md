@@ -21,7 +21,7 @@ MAC (external R.I.S.A.R.M.S. device)
 
 ## 1. Windows host setup
 
-Firewall port 5000 is already configured and working. Verify it is still
+Firewall port 5000 was configured on the host at doc time; re-verify per docs/windows-firewall.md before LAN test — LAN validation itself is NOT YET PERFORMED. Verify it is still
 in place (see `docs/windows-firewall.md`); no further firewall change is
 needed unless the port number is changed.
 
@@ -271,7 +271,7 @@ but never persisted.
 - Next launch → remembered device loads, login is required again.
 - The device is NOT treated as brand-new: no re-registration from scratch.
 
- ## Validation checklist (fill in during the physical test)
+## Validation checklist (fill in during the physical test)
 
   - [ ] TLS handshake succeeds from Mac to Windows
   - [ ] `CORE_HANDSHAKE_RESPONSE.authenticated == true` with `session_token`

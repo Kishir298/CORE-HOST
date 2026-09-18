@@ -630,7 +630,7 @@ class CoreApplication:
                 )
                 port_int = 0
 
-            # TLS — plaintext legacy fallback preserved
+            # TLS — localhost-only plaintext legacy fallback; external fails closed (see tcp.py:122-134)
             tls_enabled = self.configuration.get("communication.tls.enabled", False)
             if not isinstance(tls_enabled, bool):
                 tls_enabled = bool(tls_enabled) if isinstance(tls_enabled, (str, int)) else False

@@ -4,7 +4,7 @@ from core.errors import (
     ResourceAlreadyRegistered,
     ResourceNotFound,
 )
-from core.organization import OrganizationEngine, OrganizationEntry
+from core.organization import OrganizationEngine
 
 from .models import Resource
 

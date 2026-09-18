@@ -33,7 +33,6 @@ from core.communication.protocol import RESCS_REQUEST_TIMEOUT
 
 from .errors import (
     DataAccessDenied,
-    DataError,
     DataNotFound,
     DataRetrievalFailed,
     DataSourceUnavailable,
