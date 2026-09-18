@@ -15,8 +15,6 @@ from core.events import (
     MESSAGE_SENT,
     RESOURCE_REGISTERED,
     RESOURCE_REMOVED,
-    SERVICE_EXECUTED,
-    SERVICE_FAILED,
     SYSTEM_STARTED,
     SYSTEM_STOPPED,
 )
@@ -408,7 +406,7 @@ class CoreApplication:
                 env_loaded = self.configuration.load_environment()
                 if env_loaded:
                     self.logger.info(
-                        f"Configuration overrides from environment: "
+                        "Configuration overrides from environment: "
                         + ", ".join(sorted(env_loaded.keys()))
                     )
             except Exception:
@@ -432,7 +430,7 @@ class CoreApplication:
             env_loaded = self.configuration.load_environment()
             if env_loaded:
                 self.logger.info(
-                    f"Configuration overrides from environment: "
+                    "Configuration overrides from environment: "
                     + ", ".join(sorted(env_loaded.keys()))
                 )
         except Exception as exc:

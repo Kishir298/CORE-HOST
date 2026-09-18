@@ -1105,6 +1105,11 @@ CORE-HOST/
 │   └── cli/
 │       └── CLI / foreground runtime
 │
+│   ├── dependencies/  DependencyManager
+│   ├── errors/        CoreError hierarchy
+│   ├── logging/       CoreLogger
+│   ├── routing/       Router
+│
 │   (External-device client lives in the separate Kishir298/CORE-CLIENT
 │   repository — stdlib only, Option A login. It is not bundled here.)
 │
@@ -1193,7 +1198,7 @@ The v0.3.0 implementation contains comprehensive automated coverage across:
 The repository's current documented result is:
 
 ```text
-670 passed
+689 passed (2026-09-18)
 ```
 
 The authoritative local verification command is:

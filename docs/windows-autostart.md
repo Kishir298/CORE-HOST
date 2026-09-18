@@ -55,10 +55,10 @@ If you need C.O.R.E. before any user logs on, wrap it with
 [NSSM](https://nssm.cc/) (Non-Sucking Service Manager) — 1 binary, no code:
 
 ```powershell
-nssm install CORE "C:\Windows\py.exe" "-m core --config C:\Users\rishi\Desktop\RISARMS\CORE\config\core.yaml start"
-nssm set CORE AppDirectory C:\Users\rishi\Desktop\RISARMS\CORE
-nssm set CORE AppStdout C:\Users\rishi\Desktop\RISARMS\CORE\var\core.log
-nssm set CORE AppStderr C:\Users\rishi\Desktop\RISARMS\CORE\var\core_error.log
+nssm install CORE "C:\Windows\py.exe" "-m core --config <RISARMS>\CORE-HOST\config\core.yaml start"
+nssm set CORE AppDirectory <RISARMS>\CORE-HOST
+nssm set CORE AppStdout <RISARMS>\CORE-HOST\var\core.log
+nssm set CORE AppStderr <RISARMS>\CORE-HOST\var\core_error.log
 nssm set CORE AppRestartDelay 5000
 nssm start CORE
 ```

@@ -73,3 +73,7 @@ var/
 # Tool backups
 opencode.json.backup
 .aider*
+
+# Local LAN deployment (machine paths, never commit)
+config/core.lan.yaml
+config/*.lan.yaml
