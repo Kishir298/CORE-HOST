@@ -19,6 +19,25 @@ WINDOWS (C.O.R.E. host/server)
 MAC (external R.I.S.A.R.M.S. device)
 ```
 
+## 0. Preflight (verified 2026-09-19 — re-run before the live window)
+
+```powershell
+# Firewall rule present + enabled?
+Get-NetFirewallRule -DisplayName "C.O.R.E. TCP 5000" | Format-Table DisplayName, Enabled
+
+# TLS material present? (CN=localhost, valid to Sep 2027 as of Sep 2026;
+# openssl is NOT installed — inspect with Python instead)
+py -c "import ssl; d=ssl._ssl._test_decode_cert('tls/core.pem'); print(d.get('subject'), d.get('notAfter'))"
+
+# CLI smoke
+py -m core --help
+py -m core provision-device --help
+```
+
+Expected: rule `Enabled=True`; `subject=((('commonName', 'localhost'),),)`
+with a future `notAfter`; both `--help` outputs render. If the cert is
+expired, regenerate per §2 and re-copy the public cert to the Mac.
+
 ## 1. Windows host setup
 
 Firewall port 5000 was configured on the host at doc time; re-verify per docs/windows-firewall.md before LAN test — LAN validation itself is NOT YET PERFORMED. Verify it is still
@@ -84,8 +103,9 @@ rescs:
   path: "var/rescs.json"
 ```
 
-`config\core.lan.yaml` is git-ignored (`config/*.local.*` does not match —
-keep it out of commits manually; it contains machine paths).
+`config\core.lan.yaml` is git-ignored (`config/*.lan.yaml`); keep it out
+of commits — it contains machine paths. Only `config\core.lan.example.yaml`
+is committed.
 
 ## 4. Find the Windows LAN IP
 
