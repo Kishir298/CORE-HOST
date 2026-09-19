@@ -340,7 +340,11 @@ def execute(
         print(f"Negotiated: {negotiate(getattr(args, 'client', None))}")
         return 0
 
-    return 0
+    print(
+        f"ERROR: unknown command '{args.command}'. "
+        "Run 'py -m core --help' for usage."
+    )
+    return 2
 
 
 def execute_application(

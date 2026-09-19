@@ -305,16 +305,18 @@ class ConfigurationValidator:
         # Validate agent section if present (auto-assign, v0.3)
         if config.has("agent"):
             agent = config.get("agent")
-            if isinstance(agent, dict):
-                if "auto_assign" in agent and not isinstance(agent["auto_assign"], bool):
+            if isinstance(agent, dict) and "auto_assign" in agent:
+                aa = agent["auto_assign"]
+                if isinstance(aa, dict):
+                    # Nested form: agent.auto_assign.profile_id
+                    if "profile_id" in aa and not isinstance(
+                        aa["profile_id"], str
+                    ):
+                        errors.append(
+                            "agent.auto_assign.profile_id must be a string."
+                        )
+                elif not isinstance(aa, bool):
                     errors.append("agent.auto_assign must be a boolean.")
-                if "auto_assign" in agent and isinstance(agent["auto_assign"], dict):
-                    # Support nested agent.auto_assign.profile_id
-                    aa = agent["auto_assign"]
-                    if "profile_id" in aa and not isinstance(aa["profile_id"], str):
-                        errors.append("agent.auto_assign.profile_id must be a string.")
-                if "auto_assign.profile_id" in agent and not isinstance(agent["auto_assign.profile_id"], str):  # flat key fallback
-                    errors.append("agent.auto_assign.profile_id must be a string.")
 
         # External-device boundary: 0.0.0.0 + external TCP must never use
         # existence-only authentication. Fail closed at validation time.

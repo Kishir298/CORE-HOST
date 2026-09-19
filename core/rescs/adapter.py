@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -96,8 +97,9 @@ class InMemoryRescsAdapter(RescsAdapter):
 
     def persist_resource(self, resource: Resource) -> None:
         with self._lock:
-            # Store a copy via to_dict -> from dict reconstruction to avoid aliasing
-            self._resources[resource.resource_id] = resource
+            # Deep copy so later caller-side mutation cannot alias the
+            # stored record (and vice versa).
+            self._resources[resource.resource_id] = copy.deepcopy(resource)
 
     def fetch_resource(self, resource_id: str) -> Resource | None:
         with self._lock:

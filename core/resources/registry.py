@@ -157,6 +157,8 @@ class ResourceRegistry:
             ]
 
         if category is not None:
+            if self._organization is None:
+                return []
             resource_ids = {
                 entry.resource_id
                 for entry in self._organization.by_category(category)

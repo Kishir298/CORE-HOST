@@ -169,12 +169,18 @@ class ServiceDispatcher:
         self,
         response: ServiceResponse,
         source: str,
+        destination: str = "router",
     ) -> Message:
-        """Build a response message linking the original request."""
+        """Build a response message linking the original request.
+
+        ``destination`` should be the original requester; it defaults to
+        ``"router"`` for backward compatibility. Transports deliver the
+        reply over the request's own connection regardless.
+        """
 
         return Message(
             source=source,
-            destination="router",
+            destination=destination,
             message_type="SERVICE_RESPONSE",
             payload={
                 "service_id": response.service_id,
@@ -204,7 +210,7 @@ class ServiceDispatcher:
                 request_id=message.request_id or message.message_id,
                 error="Service message payload must be a dictionary.",
             )
-            return self.to_message(response, source=message.destination)
+            return self.to_message(response, source=message.destination, destination=message.source)
 
         try:
             request = self.to_request(message)
@@ -216,7 +222,7 @@ class ServiceDispatcher:
                 request_id=message.request_id or message.message_id,
                 error=str(exc),
             )
-            return self.to_message(response, source=message.destination)
+            return self.to_message(response, source=message.destination, destination=message.source)
 
         if self._enforcement_active():
             denied = self._enforce(request, message)
@@ -225,7 +231,7 @@ class ServiceDispatcher:
                 return denied
 
         response = self.dispatch(request)
-        return self.to_message(response, source=message.destination)
+        return self.to_message(response, source=message.destination, destination=message.source)
 
     def _enforce(
         self,
@@ -306,7 +312,7 @@ class ServiceDispatcher:
             error=reason,
         )
 
-        return self.to_message(response, source=message.destination)
+        return self.to_message(response, source=message.destination, destination=message.source)
 
 
 def _coerce_payload(result: Any) -> dict[str, Any]:
