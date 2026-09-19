@@ -71,6 +71,10 @@ def test_portal_index_serves_html(portal):
         assert "text/html" in response.headers.get("Content-Type", "")
         body = response.read().decode("utf-8")
     assert "C.O.R.E. Host Portal" in body
+    # Route descriptions + event empty-state notice ship in the UI.
+    assert "custom/dynamic route" in body
+    assert "not backfilled" in body
+    assert "RESOURCES.LIST" in body
     _assert_no_secrets(body)
 
 

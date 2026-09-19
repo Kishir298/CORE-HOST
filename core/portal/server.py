@@ -665,9 +665,16 @@ async function refreshStatus(){
 }
 async function render(){
  const c=document.getElementById("content");
+ const ROUTE_DESCRIPTIONS={
+  "RESOURCES.LIST":"resources service: list resources",
+  "HEALTH.STATUS":"health service: component checks",
+  "ORGANIZATION.LIST":"organization service: discovery snapshot",
+  "ROUTING.ROUTES":"routing service: this route table",
+  "COMMUNICATION.STATUS":"communication service: transport status"};
+ const routeDescription=t=>ROUTE_DESCRIPTIONS[t]||"custom/dynamic route";
  if(active==="overview"){const s=cache.status||{};c.innerHTML=`<pre>${esc(JSON.stringify(s,null,1))}</pre>`;return;}
  if(active==="routing"){const n=cache.network||((await api("/api/network")).data);cache.network=n;
-  c.innerHTML=`<p>${esc(n.topology||"")}</p><h3>Routes</h3>`+table(Object.entries(n.routes||{}).map(([k,v])=>({message_type:k,destination:v})));return;}
+  c.innerHTML=`<p>${esc(n.topology||"")}</p><h3>Routes</h3>`+table(Object.entries(n.routes||{}).map(([k,v])=>({message_type:k,destination:v,description:routeDescription(k)})));return;}
  if(active==="data"){const r=cache.rescs||((await api("/api/rescs")).data);cache.rescs=r;
   c.innerHTML=`<pre>${esc(JSON.stringify(r,null,1))}</pre>`;return;}
  if(active==="security"){const cfg=cache.config||((await api("/api/config")).data);cache.config=cfg;
@@ -681,7 +688,9 @@ async function render(){
  if(active==="network"){cache.network=data;c.innerHTML=`<p>${esc(data.topology||"")}</p>`+table(data.devices);return;}
  if(active==="agents"){c.innerHTML=`<h3>Assignments</h3>`+table(data.assignments)+`<h3>Profiles</h3>`+table(data.profiles)+`<h3>Agents</h3>`+table(data.agents);return;}
  if(active==="health"){c.innerHTML=statusBadge(data.overall)+table(data.checks);return;}
- if(active==="events"){c.innerHTML=table(data.map(e=>({time:e.timestamp,type:e.event_type,severity:e.severity,source:e.source,summary:e.summary})));return;}
+ if(active==="events"){
+  if(!data.length){c.innerHTML=`<p><i>No events yet — the ring fills as the bus publishes; history from before portal start is not backfilled.</i></p>`;return;}
+  c.innerHTML=table(data.map(e=>({time:e.timestamp,type:e.event_type,severity:e.severity,source:e.source,summary:e.summary})));return;}
  if(active==="devices"){c.innerHTML=table(data.map(d=>({...d,lease:d.lease?JSON.stringify(d.lease):undefined})));return;}
  c.innerHTML=table(Array.isArray(data)?data:[data]);
 }
