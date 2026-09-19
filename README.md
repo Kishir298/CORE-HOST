@@ -24,6 +24,7 @@ C.O.R.E. is designed to run continuously on a Windows host alongside **R.E.S.C.S
 
 | Area                                   | Status                    |
 | -------------------------------------- | ------------------------- |
+| Host portal (localhost control plane)  | **IMPLEMENTED** (v0.4.0; see `docs/host-portal.md`) |
 | Runtime orchestration                  | **IMPLEMENTED**           |
 | Configuration system                   | **IMPLEMENTED**           |
 | Communication layer                    | **IMPLEMENTED**           |

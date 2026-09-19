@@ -21,6 +21,17 @@ communication:
 network:
   enabled: false
 
+web:
+  # Localhost host portal (presentation only; never binds 0.0.0.0 unless
+  # host is explicitly changed — remote administration is opt-in).
+  enabled: true
+  host: "127.0.0.1"
+  port: 8765
+  auto_open_browser: false
+  location:
+    enabled: true
+    precision: approximate  # exact | approximate | city | hidden
+
 components:
   configuration:
     enabled: true

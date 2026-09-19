@@ -460,6 +460,10 @@ def run_application(app: CoreApplication) -> int:
         )
         print()
         print("C.O.R.E. is running.")
+        portal = getattr(app, "portal", None)
+        if portal is not None and portal.is_running:
+            print()
+            print(f"Host Portal:\n{portal.url}")
         print("Press Ctrl+C to shut down.")
 
         while app.is_running:

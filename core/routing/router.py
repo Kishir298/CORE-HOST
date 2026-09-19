@@ -80,6 +80,12 @@ class Router:
         with self._lock:
             return message_type in self._routes
 
+    def list_routes(self) -> dict[str, str]:
+        """Return a snapshot of the static route table (read-only copy)."""
+
+        with self._lock:
+            return dict(self._routes)
+
     def get_route(self, message_type: str) -> str:
         """Return the destination for a message type."""
 

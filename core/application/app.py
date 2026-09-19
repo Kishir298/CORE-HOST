@@ -127,6 +127,8 @@ class CoreApplication:
 
         self._initialized = False
         self._disabled_components: set[str] = set()
+        # Localhost web portal (presentation only; started in start()).
+        self.portal = None
 
         self._register_runtime_components()
         self._register_dependencies()
@@ -1524,6 +1526,13 @@ class CoreApplication:
             "release",
             lambda device_id: self._release_agent(device_id=device_id),
         )
+        self.services.register_handler(
+            "agent",
+            "infer",
+            lambda device_id, prompt, profile_id=None, **kwargs: self._infer_agent(
+                device_id=device_id, prompt=prompt, profile_id=profile_id
+            ),
+        )
 
     def _register_service_endpoints(self) -> None:
         """Register transport endpoints that dispatch to services."""
@@ -1848,6 +1857,48 @@ class CoreApplication:
             )
 
         return {"released": assignment.to_dict()}
+
+    def _infer_agent(
+        self,
+        device_id: str,
+        prompt: str,
+        profile_id: str | None = None,
+    ) -> dict:
+        """AI offload entry point: place the request via the AgentScheduler.
+
+        The scheduler assigns (or reuses) a host agent for the device and
+        the request is recorded for the assigned agent runtime to execute.
+        C.O.R.E. ships no model runtime, so text generation itself is the
+        assigned agent runtime's job (e.g. an ASIS overlay consuming the
+        assignment); this operation truthfully returns placement, never
+        fabricated model output.
+        """
+        if not (isinstance(prompt, str) and prompt.strip()):
+            raise ValueError("prompt must be a non-empty string.")
+        placed = self._assign_agent(device_id=device_id, profile_id=profile_id)
+        assignment = placed.get("assignment", {})
+        agent = placed.get("agent", {})
+        profile = None
+        try:
+            profile = self.scheduler.get_profile(assignment.get("profile_id", ""))
+        except Exception:
+            profile = None
+        return {
+            "status": "assigned",
+            "device_id": device_id,
+            "agent_id": assignment.get("agent_id"),
+            "profile_id": assignment.get("profile_id"),
+            "execution_location": (
+                profile.host if profile is not None else "windows-host"
+            ),
+            "agent_type": profile.agent_type if profile is not None else None,
+            "prompt_chars": len(prompt.strip()),
+            "note": (
+                "Request placed with the assigned agent runtime for "
+                "execution; C.O.R.E. performs placement and routing, not "
+                "model generation."
+            ),
+        }
 
     @staticmethod
     def _resource_snapshot(resource: Resource) -> dict:
@@ -2517,8 +2568,60 @@ class CoreApplication:
             payload={"state": "running"},
         )
 
+        self._start_portal()
+
+    def _start_portal(self) -> None:
+        """Start the localhost host portal when enabled (best-effort).
+
+        The portal is presentation-only; a failure to bind must never take
+        down the host. Configuration section ``web`` (all optional):
+        ``enabled`` (default true), ``host`` (default 127.0.0.1),
+        ``port`` (default 8765), ``auto_open_browser`` (default false).
+        """
+        try:
+            from core.portal.server import HostPortal
+        except Exception as exc:
+            self.logger.warning(f"Host portal unavailable: {exc}")
+            return
+        try:
+            get = self.configuration.get
+            if not get("web.enabled", True):
+                return
+            host = get("web.host", "127.0.0.1") or "127.0.0.1"
+            port = get("web.port", 8765)
+            try:
+                port = int(port)
+            except (TypeError, ValueError):
+                port = 8765
+            location = get("web.location", {}) or {}
+            precision = (
+                location.get("precision", "approximate")
+                if isinstance(location, dict)
+                else "approximate"
+            )
+            portal = HostPortal(
+                self,
+                host=str(host),
+                port=port,
+                auto_open_browser=bool(get("web.auto_open_browser", False)),
+                location_precision=str(precision),
+            )
+            url = portal.start()
+            self.portal = portal
+            self.logger.info(f"Host portal: {url}")
+        except Exception as exc:
+            self.logger.warning(f"Host portal failed to start: {exc}")
+            self.portal = None
+
     def stop(self) -> None:
         core_initialized = "core" in self.runtime.initialized_components()
+
+        portal, self.portal = getattr(self, "portal", None), None
+        if portal is not None:
+            try:
+                portal.stop()
+            except Exception:
+                pass
 
         self.runtime.stop()
 

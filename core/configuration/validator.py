@@ -160,6 +160,7 @@ class ConfigurationValidator:
             "runtime",
             "network",
             "rescs",
+            "web",
         ):
             if not config.has(section):
                 continue
@@ -244,6 +245,45 @@ class ConfigurationValidator:
                         if lease_val <= 0:
                             errors.append(
                                 "communication.connection_lease_seconds must be a positive number."
+                            )
+
+        # Validate web (portal) section if present
+        if config.has("web"):
+            web = config.get("web")
+            if isinstance(web, dict):
+                if "enabled" in web and not isinstance(web["enabled"], bool):
+                    errors.append("web.enabled must be a boolean.")
+                if "host" in web and not isinstance(web["host"], str):
+                    errors.append("web.host must be a string.")
+                if "port" in web:
+                    try:
+                        port_val = int(web["port"])  # type: ignore
+                        if port_val < 0 or port_val > 65535:
+                            errors.append("web.port must be in range 0-65535.")
+                    except (TypeError, ValueError):
+                        errors.append("web.port must be an integer.")
+                if "auto_open_browser" in web and not isinstance(
+                    web["auto_open_browser"], bool
+                ):
+                    errors.append("web.auto_open_browser must be a boolean.")
+                if "location" in web:
+                    location = web["location"]
+                    if not isinstance(location, dict):
+                        errors.append("web.location must be a dictionary.")
+                    else:
+                        if "enabled" in location and not isinstance(
+                            location["enabled"], bool
+                        ):
+                            errors.append("web.location.enabled must be a boolean.")
+                        if "precision" in location and location["precision"] not in (
+                            "exact",
+                            "approximate",
+                            "city",
+                            "hidden",
+                        ):
+                            errors.append(
+                                "web.location.precision must be one of "
+                                "exact/approximate/city/hidden."
                             )
 
         # Validate security section if present
