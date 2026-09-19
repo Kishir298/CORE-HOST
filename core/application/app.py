@@ -438,8 +438,11 @@ class CoreApplication:
 
         self._apply_component_policy()
         self._deactivate_disabled_components()
-        self._apply_security_policy()
+        # Transport first: it pins loopback to 127.0.0.1, so the security
+        # policy below sees the effective bind address (a loopback
+        # transport can never be judged external).
         self._apply_transport_policy()
+        self._apply_security_policy()
         self._apply_rescs_policy()
         self._restore_persisted_devices()
 
@@ -583,6 +586,30 @@ class CoreApplication:
             transport_name = transport_name.strip().lower()
         else:
             transport_name = "local"
+
+        if transport_name == "loopback":
+            # The loopback transport must never bind externally: pin it to
+            # 127.0.0.1 even if communication.host says otherwise. External
+            # enforcement therefore keys off the effective bind address.
+            try:
+                current_host = self.configuration.get(
+                    "communication.host", "127.0.0.1"
+                )
+            except Exception:
+                current_host = "127.0.0.1"
+            if (
+                isinstance(current_host, str)
+                and current_host.strip()
+                and current_host.strip() != "127.0.0.1"
+            ):
+                self.logger.warning(
+                    "communication.transport=loopback never binds externally; "
+                    f"overriding host {current_host!r} with 127.0.0.1."
+                )
+                try:
+                    self.configuration.set("communication.host", "127.0.0.1")
+                except Exception:
+                    pass
 
         wants_external = network_enabled is True and transport_name in (
             "tcp",

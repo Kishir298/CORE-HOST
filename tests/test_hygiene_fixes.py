@@ -132,3 +132,103 @@ def test_deprecated_execute_unknown_command_returns_2(capsys):
         rc = execute(argparse.Namespace(command="frobnicate"), runtime)
     assert rc == 2
     assert "unknown command" in capsys.readouterr().out
+
+
+def test_token_fallback_warns_but_passes_by_default():
+    from core.security.models import Identity, IdentityType
+    from core.security.provider import TokenAuthenticationProvider
+
+    provider = TokenAuthenticationProvider()
+    identity = Identity(identity_id="mac-01", name="Mac", identity_type=IdentityType.DEVICE, metadata={})
+    with pytest.warns(UserWarning, match="existence-only"):
+        assert provider.authenticate(identity, None) is True
+
+
+def test_token_fallback_closed_when_opted_out():
+    import warnings
+
+    from core.security.models import Identity, IdentityType
+    from core.security.provider import TokenAuthenticationProvider
+
+    provider = TokenAuthenticationProvider(allow_insecure_fallback=False)
+    identity = Identity(identity_id="mac-01", name="Mac", identity_type=IdentityType.DEVICE, metadata={})
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert provider.authenticate(identity, None) is False
+
+
+def test_token_match_still_exact():
+    from core.security.models import Identity, IdentityType
+    from core.security.provider import TokenAuthenticationProvider
+
+    provider = TokenAuthenticationProvider(allow_insecure_fallback=False)
+    identity = Identity(identity_id="mac-01", name="Mac", identity_type=IdentityType.DEVICE, metadata={"token": "s3cr3t"})
+    assert provider.authenticate(identity, "s3cr3t") is True
+    assert provider.authenticate(identity, "wrong") is False
+    assert provider.authenticate(identity, None) is False
+
+
+def test_loopback_transport_not_treated_as_external(tmp_path):
+    from core.application import CoreApplication
+
+    config = (
+        "core:\n  name: C.O.R.E.\n  version: 0.3.0\nenvironment: development\n"
+        "network:\n  enabled: true\n"
+        "communication:\n  transport: loopback\n  host: 0.0.0.0\n  port: 0\n"
+        "security:\n  provider: existence\n"
+    )
+    path = tmp_path / "core.yaml"
+    path.write_text(config, encoding="utf-8")
+    app = CoreApplication(config_path=str(path))
+    try:
+        app.start()
+        assert app.configuration.get("communication.host") == "127.0.0.1"
+    finally:
+        app.stop()
+
+
+def test_loopback_with_existence_provider_validates():
+    config = _config(
+        {
+            "core": {"name": "C.O.R.E.", "version": "0.3.0"},
+            "network": {"enabled": True},
+            "communication": {"transport": "loopback", "host": "0.0.0.0"},
+            "security": {"provider": "existence"},
+        }
+    )
+    assert ConfigurationValidator().is_valid(config) is True
+
+
+def test_tcp_with_existence_provider_still_rejected():
+    config = _config(
+        {
+            "core": {"name": "C.O.R.E.", "version": "0.3.0"},
+            "network": {"enabled": True},
+            "communication": {"transport": "tcp", "host": "0.0.0.0"},
+            "security": {"provider": "existence"},
+        }
+    )
+    assert ConfigurationValidator().is_valid(config) is False
+
+
+def test_empty_device_type_and_platform_rejected():
+    from core.communication.protocol import (
+        DEVICE_REGISTRATION_FAILED,
+        validate_registration_payload,
+    )
+
+    base = {
+        "device_id": "mac-01",
+        "device_name": "MacBook",
+        "device_type": "phone",
+        "platform": "mac",
+        "capabilities": [],
+        "protocol_version": "0.3.0",
+    }
+    assert validate_registration_payload(dict(base)) == (None, None)
+    bad_type = dict(base, device_type="   ")
+    assert validate_registration_payload(bad_type)[0] == DEVICE_REGISTRATION_FAILED
+    bad_platform = dict(base, platform="")
+    assert validate_registration_payload(bad_platform)[0] == DEVICE_REGISTRATION_FAILED
+    bad_kind = dict(base, device_type=123)
+    assert validate_registration_payload(bad_kind)[0] == DEVICE_REGISTRATION_FAILED

@@ -320,6 +320,9 @@ class ConfigurationValidator:
 
         # External-device boundary: 0.0.0.0 + external TCP must never use
         # existence-only authentication. Fail closed at validation time.
+        # NOTE: transport name "loopback" is intentionally NOT in this list:
+        # _apply_transport_policy pins loopback to 127.0.0.1, so it can
+        # never bind externally regardless of communication.host.
         try:
             network = config.get("network") if config.has("network") else None
             comm = config.get("communication") if config.has("communication") else None
@@ -329,7 +332,7 @@ class ConfigurationValidator:
                 and network.get("enabled") is True
                 and isinstance(comm, dict)
                 and str(comm.get("transport", "")).strip().lower()
-                in ("tcp", "network", "external", "loopback")
+                in ("tcp", "network", "external")
                 and str(comm.get("host", "")).strip() == "0.0.0.0"
             )
             if ext and isinstance(sec, dict):

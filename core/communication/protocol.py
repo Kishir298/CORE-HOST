@@ -124,8 +124,12 @@ def validate_registration_payload(payload: object) -> tuple[str | None, str | No
         return DEVICE_REGISTRATION_FAILED, "Empty device_name."
     if payload.get("device_type") is None:
         return DEVICE_REGISTRATION_FAILED, "Missing device_type."
+    if not isinstance(payload.get("device_type"), str) or not payload["device_type"].strip():
+        return DEVICE_REGISTRATION_FAILED, "Empty device_type."
     if payload.get("platform") is None:
         return DEVICE_REGISTRATION_FAILED, "Missing platform."
+    if not isinstance(payload.get("platform"), str) or not payload["platform"].strip():
+        return DEVICE_REGISTRATION_FAILED, "Empty platform."
     if "capabilities" not in payload:
         return DEVICE_REGISTRATION_FAILED, "Missing capabilities."
     if not isinstance(payload.get("capabilities"), list):

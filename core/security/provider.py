@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from abc import ABC, abstractmethod
 from typing import Any
 
@@ -44,10 +45,17 @@ class TokenAuthenticationProvider(AuthenticationProvider):
 
     If the identity carries ``metadata.token`` (or ``metadata.credential``),
     the supplied credential must equal that token. Identities without a token
-    fall back to existence-only. This avoids hardcoded secrets while allowing
-    per-identity bearer tokens supplied via message payload ``_credential`` or
+    fall back to existence-only **only** when ``allow_insecure_fallback`` is
+    true (default, backward compatible) — and even then a loud
+    ``UserWarning`` is emitted so the hole is visible in logs and tests.
+    Pass ``allow_insecure_fallback=False`` to fail closed for token-less
+    identities. This avoids hardcoded secrets while allowing per-identity
+    bearer tokens supplied via message payload ``_credential`` or
     ``credential`` fields.
     """
+
+    def __init__(self, allow_insecure_fallback: bool = True) -> None:
+        self.allow_insecure_fallback = bool(allow_insecure_fallback)
 
     def authenticate(self, identity: Identity, credential: Any | None) -> bool:
         # Look for token in common metadata keys
@@ -57,8 +65,18 @@ class TokenAuthenticationProvider(AuthenticationProvider):
                 expected = identity.metadata[key]
                 break
 
-        # No token configured → existence suffices
+        # No token configured → existence suffices only with the fallback
+        # explicitly allowed (default true for backward compatibility).
         if expected is None:
+            if not self.allow_insecure_fallback:
+                return False
+            warnings.warn(
+                f"identity {identity.identity_id!r} has no token; "
+                "falling back to existence-only authentication "
+                "(pass allow_insecure_fallback=False to fail closed)",
+                UserWarning,
+                stacklevel=3,
+            )
             return True
 
         # Token configured → credential must match exactly
