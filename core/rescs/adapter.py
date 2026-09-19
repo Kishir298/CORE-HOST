@@ -103,7 +103,10 @@ class InMemoryRescsAdapter(RescsAdapter):
 
     def fetch_resource(self, resource_id: str) -> Resource | None:
         with self._lock:
-            return self._resources.get(resource_id)
+            found = self._resources.get(resource_id)
+            # Deep copy: callers must persist explicitly; mutating a
+            # fetched record never alters the store (symmetric with persist).
+            return copy.deepcopy(found) if found is not None else None
 
     def delete_resource(self, resource_id: str) -> None:
         with self._lock:
@@ -111,15 +114,15 @@ class InMemoryRescsAdapter(RescsAdapter):
 
     def list_resources(self) -> list[Resource]:
         with self._lock:
-            return list(self._resources.values())
+            return copy.deepcopy(list(self._resources.values()))
 
     def persist_runtime(self, record: RuntimeRecord) -> None:
         with self._lock:
-            self._runtimes[record.entity_id] = record
+            self._runtimes[record.entity_id] = copy.deepcopy(record)
 
     def list_runtimes(self) -> list[RuntimeRecord]:
         with self._lock:
-            return list(self._runtimes.values())
+            return copy.deepcopy(list(self._runtimes.values()))
 
     def health(self) -> dict[str, Any]:
         with self._lock:

@@ -81,6 +81,30 @@ def test_inmemory_adapter_persist_isolates_copies():
     assert stored.status == "offline"
 
 
+def test_inmemory_adapter_fetch_isolates_copies():
+    adapter = InMemoryRescsAdapter()
+    adapter.persist_resource(
+        Resource(
+            resource_id="d1",
+            name="D1",
+            resource_type="hardware",
+            metadata={"k": "v"},
+        )
+    )
+    fetched = adapter.fetch_resource("d1")
+    assert fetched is not None
+    fetched.metadata["k"] = "MUTATED"
+    fetched.status = "online"
+    refetched = adapter.fetch_resource("d1")
+    assert refetched is not None
+    assert refetched.metadata == {"k": "v"}
+    assert refetched.status == "offline"
+    listed = adapter.list_resources()
+    listed[0].metadata["k"] = "MUTATED"
+    assert adapter.fetch_resource("d1") is not None
+    assert adapter.fetch_resource("d1").metadata == {"k": "v"}
+
+
 def test_dispatcher_reply_targets_requester():
     manager = ServiceManager()
     manager.register(Service(service_id="echo", name="Echo", version="0.1.0"))
