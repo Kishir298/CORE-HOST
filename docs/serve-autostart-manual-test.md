@@ -1,7 +1,8 @@
 # Ollama Serve Autostart Manual Test (not CI)
 
-> [!CAUTION] Status: **NOT PERFORMED** — do not claim validation until
-> each step passes with real processes (check every box as you go).
+> Status: **PERFORMED 2026-09-19** — all steps passed with real processes
+> (tray quit → owned serve → owned stop → tray restored). Re-run after
+> launcher changes; check every box again.
 
 Validates the launcher-owned `ollama serve` lifecycle: auto-start when
 down, pre-existing servers left alone, owned servers stopped on exit.
@@ -15,9 +16,9 @@ remote — linked by path, not URL).
 
 ## 1. Preflight
 
-- [ ] `ollama ps` shows a running server; note its PID
+- [x] `ollama ps` shows a running server; note its PID
       (`Get-Process ollama`).
-- [ ] Record whether an `ollama app` (tray) process exists.
+- [x] Record whether an `ollama app` (tray) process exists.
 
 ## 2. Pre-existing server is left alone
 
@@ -28,8 +29,8 @@ cd C:\Users\<you>\Desktop\RISARMS\ASCS
 npm run ascs:check
 ```
 
-- [ ] Check passes; `ollama` PID is unchanged afterwards.
-- [ ] Tray app (if present) still reports running.
+- [x] Check passes; `ollama` PID is unchanged afterwards.
+- [x] Tray app (if present) still reports running.
 
 ## 3. Owned autostart (tray quit required)
 
@@ -37,18 +38,18 @@ npm run ascs:check
    confirm `ollama ps` fails / connection refused.
 2. Run `npm run ascs:check`.
 
-- [ ] Launcher prints `Ollama is down; starting 'ollama serve' …`
+- [x] Launcher prints `Ollama is down; starting 'ollama serve' …`
       then `Ollama server is up (launcher-owned).`
-- [ ] Check output shows `Ollama: OK` with an available model.
-- [ ] A new `ollama` server PID exists.
+- [x] Check output shows `Ollama: OK` with an available model.
+- [x] A new `ollama` server PID exists.
 
 ## 4. Owned stop on exit
 
 After step 3, quit the session / let the launcher exit.
 
-- [ ] The launcher-owned server PID is gone (`Get-Process ollama`
+- [x] The launcher-owned server PID is gone (`Get-Process ollama`
       empty); model unloaded first (`ollama stop` best-effort).
-- [ ] Restart the tray app / `ollama serve` to restore the normal
+- [x] Restart the tray app / `ollama serve` to restore the normal
       state afterwards.
 
 ## 5. Failure branch
@@ -56,5 +57,5 @@ After step 3, quit the session / let the launcher exit.
 With the server down AND the port blocked (or `ollama` renamed off
 PATH in a sandbox copy — never on the real install):
 
-- [ ] Launcher fails fast with the `ollama serve` hint, exit code `2`,
+- [x] Launcher fails fast with the `ollama serve` hint, exit code `2`,
       no 60s hang, no stray processes.
