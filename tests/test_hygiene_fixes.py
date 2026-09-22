@@ -52,6 +52,19 @@ def test_agent_auto_assign_bool_form_valid():
     assert ConfigurationValidator().is_valid(config) is True
 
 
+def test_agent_auto_assign_string_form_single_error():
+    config = _config(
+        {
+            "core": {"name": "C.O.R.E.", "version": "0.3.0"},
+            "agent": {"auto_assign": "yes"},
+        }
+    )
+    with pytest.raises(ValueError) as excinfo:
+        ConfigurationValidator().validate(config)
+    assert "agent.auto_assign must be a boolean." in str(excinfo.value)
+    assert "profile_id" not in str(excinfo.value)
+
+
 def test_registry_discover_category_detached_returns_empty():
     registry = ResourceRegistry()
     registry.register(
@@ -62,6 +75,7 @@ def test_registry_discover_category_detached_returns_empty():
         )
     )
     assert registry.discover(category="anything") == []
+    assert registry.discover(category="sensor", owner="x") == []
 
 
 def test_inmemory_adapter_persist_isolates_copies():
