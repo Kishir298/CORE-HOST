@@ -1199,7 +1199,7 @@ The v0.3.0 implementation contains comprehensive automated coverage across:
 The repository's current documented result is:
 
 ```text
-689 passed (2026-09-18)
+52 test files; last documented 689 passed (2026-09-18) — re-verify with pytest -q
 ```
 
 The authoritative local verification command is:
