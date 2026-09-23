@@ -482,7 +482,11 @@ class CoreApplication:
                 TokenAuthenticationProvider,
             )
 
-            self.security.set_provider(TokenAuthenticationProvider())
+            # Fail-closed for external: explicit False. Explicit True is
+            # localhost legacy compatibility only, never for 0.0.0.0.
+            self.security.set_provider(
+                TokenAuthenticationProvider(allow_insecure_fallback=False)
+            )
             self.logger.info(
                 "External-device configuration: using TokenAuthenticationProvider."
             )
@@ -510,7 +514,11 @@ class CoreApplication:
                         TokenAuthenticationProvider,
                     )
 
-                    self.security.set_provider(TokenAuthenticationProvider())
+                    # Fail-closed: explicit False. Explicit True is localhost
+                    # legacy compatibility only.
+                    self.security.set_provider(
+                        TokenAuthenticationProvider(allow_insecure_fallback=False)
+                    )
                     self.logger.info(
                         "Security provider switched to TokenAuthenticationProvider."
                     )

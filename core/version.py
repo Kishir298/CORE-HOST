@@ -37,7 +37,7 @@ class SemanticVersion:
     def parse(cls, version: str) -> "SemanticVersion":
         if not isinstance(version, str) or not version.strip():
             raise ValueError(f"Invalid version string: {version!r}")
-        v = version.strip().lstrip("v")
+        v = version.strip().removeprefix("v").removeprefix("V")
         # Allow 0.2, 0.2.1, 0.3.0 etc.
         parts = v.split(".")
         if len(parts) == 2:
@@ -67,12 +67,12 @@ class SemanticVersion:
 
 
 def is_supported(version: str) -> bool:
-    """Return whether a version is supported (including legacy)."""
+    """Return whether a version is supported."""
     try:
         v = SemanticVersion.parse(version)
     except ValueError:
         return False
-    return str(v) in SUPPORTED_VERSIONS or str(v) in LEGACY_VERSIONS
+    return str(v) in SUPPORTED_VERSIONS
 
 
 def is_legacy(version: str) -> bool:

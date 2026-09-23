@@ -90,9 +90,10 @@ class HostPortal:
         if self.is_running:
             return self.url
         if self.host not in ("127.0.0.1", "localhost", "::1"):
-            print(
-                f"WARNING: host portal bound to non-localhost {self.host!r}; "
-                "remote administration is opt-in — restrict access."
+            raise RuntimeError(
+                f"Host portal refused non-loopback bind {self.host!r}: "
+                "portal has no authentication; bind 127.0.0.1/localhost "
+                "or front with token auth."
             )
         try:
             from core.events import types as event_types

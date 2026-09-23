@@ -287,11 +287,22 @@ class ResourceIngestor:
         authoritative: dict[str, Resource] = {}
         failed: list[str] = []
         errors: dict[str, str] = {}
-        for item in sorted(stored_all or [], key=lambda i: self._sort_key(i)):
+        for idx, item in enumerate(sorted(stored_all or [], key=lambda i: self._sort_key(i))):
             try:
                 normalized = normalize_resource(item)
             except InvalidResourceData as exc:
                 label = self._describe(item)
+                # Disambiguate <unknown> collisions with index; keep the
+                # first "<unknown>" stable for backward compatibility.
+                if label in errors:
+                    if label == "<unknown>":
+                        label = f"<unknown-{idx}>"
+                    else:
+                        label = f"{label}-{idx}"
+                    base, suffix = label, 0
+                    while label in errors:
+                        suffix += 1
+                        label = f"{base}-{suffix}"
                 failed.append(label)
                 errors[label] = str(exc)
                 continue
@@ -357,7 +368,7 @@ class ResourceIngestor:
             "errors": {},
         }
         items = sorted(stored_all or [], key=lambda item: self._sort_key(item))
-        for item in items:
+        for idx, item in enumerate(items):
             try:
                 before = self._registry_count(item)
                 self.ingest_resource(self._resource_id_of(item))
@@ -369,7 +380,17 @@ class ResourceIngestor:
                 raise
             except (InvalidResourceData, RescsResourceNotFound) as exc:
                 summary["failed"] += 1
-                summary["errors"][self._describe(item)] = str(exc)
+                label = self._describe(item)
+                if label in summary["errors"]:
+                    if label == "<unknown>":
+                        label = f"<unknown-{idx}>"
+                    else:
+                        label = f"{label}-{idx}"
+                    base, suffix = label, 0
+                    while label in summary["errors"]:
+                        suffix += 1
+                        label = f"{base}-{suffix}"
+                summary["errors"][label] = str(exc)
         return summary
 
     def forget_resource(self, resource_id: str) -> Resource:

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import copy
 import json
+import time
+import warnings
 from abc import ABC, abstractmethod
 from pathlib import Path
 from threading import RLock
@@ -187,7 +189,38 @@ class FileRescsAdapter(RescsAdapter):
         try:
             with self._path.open("r", encoding="utf-8") as f:
                 data = json.load(f)
-        except Exception:
+        except Exception as exc:
+            # Never silently lose data: preserve the corrupt file for
+            # forensics as <name>.corrupt.<ts> and start empty.
+            try:
+                ts = int(time.time())
+                corrupt = self._path.with_name(
+                    f"{self._path.name}.corrupt.{ts}"
+                )
+                self._path.replace(corrupt)
+                warnings.warn(
+                    f"corrupt RESCS file {self._path} preserved as {corrupt}: {exc}",
+                    UserWarning,
+                    stacklevel=2,
+                )
+            except Exception:
+                pass
+            return
+        if not isinstance(data, dict):
+            try:
+                ts = int(time.time())
+                corrupt = self._path.with_name(
+                    f"{self._path.name}.corrupt.{ts}"
+                )
+                self._path.replace(corrupt)
+                warnings.warn(
+                    f"corrupt RESCS file {self._path} (not an object) "
+                    f"preserved as {corrupt}",
+                    UserWarning,
+                    stacklevel=2,
+                )
+            except Exception:
+                pass
             return
 
         # Hydrate resources

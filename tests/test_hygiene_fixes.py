@@ -149,13 +149,22 @@ def test_deprecated_execute_unknown_command_returns_2(capsys):
 
 
 def test_token_fallback_warns_but_passes_by_default():
+    import warnings
+
     from core.security.models import Identity, IdentityType
     from core.security.provider import TokenAuthenticationProvider
 
+    # Secure default: fail closed with no token and no warning.
     provider = TokenAuthenticationProvider()
     identity = Identity(identity_id="mac-01", name="Mac", identity_type=IdentityType.DEVICE, metadata={})
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert provider.authenticate(identity, None) is False
+
+    # Explicit legacy opt-in still warns but passes.
+    legacy = TokenAuthenticationProvider(allow_insecure_fallback=True)
     with pytest.warns(UserWarning, match="existence-only"):
-        assert provider.authenticate(identity, None) is True
+        assert legacy.authenticate(identity, None) is True
 
 
 def test_token_fallback_closed_when_opted_out():
