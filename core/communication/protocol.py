@@ -69,7 +69,8 @@ DEVICE_STATUS_ONLINE = "online"
 DEVICE_STATUS_OFFLINE = "offline"
 
 # -- protocol version used by the device registration contract -------------
-SUPPORTED_PROTOCOL_VERSION = "0.3.0"
+# Current default; 0.3.0 stays accepted via core.version.is_supported.
+SUPPORTED_PROTOCOL_VERSION = "0.4.0"
 
 # -- minimum TLS version (TLS 1.2) ------------------------------------------
 try:  # pragma: no cover - environment dependent

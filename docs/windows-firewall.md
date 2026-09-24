@@ -52,7 +52,7 @@ On failure, C.O.R.E. falls back to `127.0.0.1` with a warning when
 
 ## External-device hardening
 
-Current C.O.R.E. version = 0.3.0.
+Current C.O.R.E. version = 0.4.0.
 
 External TCP requires TLS. External devices authenticate before application messages.
 Connections are persistent. Maximum frame size is 10 MB. Maximum active connections is 64.

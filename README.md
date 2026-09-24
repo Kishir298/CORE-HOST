@@ -17,7 +17,7 @@ It provides runtime orchestration, device communication, routing, services, reso
 
 C.O.R.E. is designed to run continuously on a Windows host alongside **R.E.S.C.S.**, while providing services and agent execution for connected R.I.S.A.R.M.S. devices such as Macs, phones, tablets, watches, and R.O.V.E.R.T.
 
-> **Current status:** All intended v0.3.0 software components are implemented and covered by automated testing. Physical Windows ↔ Mac LAN validation and extended 24/7 operational validation remain deployment-validation tasks and must not be confused with automated localhost testing.
+> **Current status:** All intended v0.3.0 software components are implemented and covered by automated testing (historical v0.3.0 milestone; current package is v0.4.0). Physical Windows ↔ Mac LAN validation and extended 24/7 operational validation remain deployment-validation tasks and must not be confused with automated localhost testing.
 
 ---
 
@@ -1341,7 +1341,7 @@ No subsystem should silently assume responsibility belonging to another authorit
 
 ---
 
-# 37. Version 0.3.0 Feature Summary
+# 37. Version 0.3.0 Feature Summary (historical; current is v0.4.0)
 
 C.O.R.E. v0.3.0 provides:
 
@@ -1386,7 +1386,7 @@ C.O.R.E. v0.3.0 provides:
 
 ---
 
-# 38. Final v0.3.0 Status
+# 38. Final v0.3.0 Status (historical; current is v0.4.0)
 
 **C.O.R.E. v0.3.0 software implementation: COMPLETE.**
 
