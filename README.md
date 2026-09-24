@@ -1,6 +1,7 @@
 # C.O.R.E.-HOST — Communication, Organization and Resource Engine (Host)
 
 **Version:** `0.3.0`
+**Host Portal:** `v0.4.0` (independently versioned localhost control plane — package stays at 0.3.0; see `docs/host-portal.md`, `core/portal/server.py` `CoreHostPortal/0.4.0`)
 **Status:** **Implementation Complete · Physical LAN Validation Pending**
 **Platform:** Windows 11 host · Python `>=3.10`
 **R.I.S.A.R.M.S. subsystem:** C.O.R.E.-HOST (server side)
@@ -1109,7 +1110,9 @@ CORE-HOST/
 │   ├── dependencies/  DependencyManager
 │   ├── errors/        CoreError hierarchy
 │   ├── logging/       CoreLogger
+│   ├── portal/        HostPortal (localhost control plane, v0.4.0)
 │   ├── routing/       Router
+│   ├── version.py     CORE_VERSION / negotiation (package 0.3.0)
 │
 │   (External-device client lives in the separate Kishir298/CORE-CLIENT
 │   repository — stdlib only, Option A login. It is not bundled here.)
