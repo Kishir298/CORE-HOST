@@ -918,6 +918,7 @@ class CoreApplication:
         device_type: str = "generic",
         platform: str = "unknown",
         capabilities: list[str] | None = None,
+        # intentional wire default — package is 0.4.0, see protocol.py
         protocol_version: str = "0.3.0",
         permissions: list[str] | None = None,
     ) -> dict:

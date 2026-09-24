@@ -72,6 +72,7 @@ class DeviceRecord:
     registered_at: datetime = field(
         default_factory=lambda: datetime.now(timezone.utc)
     )
+    # intentional wire default — package is 0.4.0, see protocol.py
     protocol_version: str = "0.3.0"
     join_name: str = ""
 
