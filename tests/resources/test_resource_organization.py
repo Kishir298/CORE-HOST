@@ -136,3 +136,24 @@ def test_organization_created_with_registry_for_discovery():
 
     assert engine.resource("linked").resource_id == "linked"
     assert len(engine.by_resource("linked")) == 1
+
+
+def test_registry_clear_cascades_to_organization():
+    registry = ResourceRegistry()
+    engine = OrganizationEngine(registry=registry)
+    registry.attach_organization(engine)
+
+    registry.register(
+        Resource(
+            resource_id="to-clear",
+            name="Temporary",
+            resource_type="node",
+        )
+    )
+    assert engine.count() == 1
+
+    registry.clear()
+
+    assert registry.count() == 0
+    assert engine.count() == 0
+    assert engine.by_resource("to-clear") == []

@@ -179,5 +179,8 @@ class ResourceRegistry:
     def clear(self) -> None:
         self._resources.clear()
 
+        if self._organization is not None:
+            self._organization.clear()
+
     def __iter__(self) -> Iterable[Resource]:
         return iter(self._resources.values())
