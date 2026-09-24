@@ -14,7 +14,7 @@ def create_parser() -> argparse.ArgumentParser:
     try:
         from core.version import __version__ as _ver
     except Exception:
-        _ver = "0.3.0"
+        _ver = "0.4.0"
 
     parser = argparse.ArgumentParser(
         prog="core",
