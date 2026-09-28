@@ -3,14 +3,14 @@
 Implements the R.E.S.C.S. HTTP data contract over ``127.0.0.1`` using only
 the standard library. No real R.E.S.C.S. installation required.
 
-Endpoints:
+Endpoints (all under ``/api/v1/`` per R.E.S.C.S. contract):
 
-- ``GET /records?namespace=&key_prefix=&owner=&query=`` (``query`` switches
+- ``GET /api/v1/records?namespace=&key_prefix=&owner=&query=`` (``query`` switches
   to substring search; without it this is a filtered list)
-- ``GET /records/search?query=&namespace=&key_prefix=&owner=``
-- ``GET /records/{namespace}/{key}?owner=`` (404 when absent)
-- ``GET /files/{file_id}/metadata`` (404 when absent)
-- ``GET /files/{file_id}/content`` (``{"file", "content_base64"}``)
+- ``GET /api/v1/records/search?query=&namespace=&key_prefix=&owner=``
+- ``GET /api/v1/records/{namespace}/{key}?owner=`` (404 when absent)
+- ``GET /api/v1/files/{file_id}/metadata`` (404 when absent)
+- ``GET /api/v1/files/{file_id}/content`` (``{"file", "content_base64"}``)
 
 Failure injection via :attr:`RescsFixture.fail_mode`:
 
@@ -122,16 +122,17 @@ class _Handler(BaseHTTPRequestHandler):
         params = {k: v[0] for k, v in urllib.parse.parse_qs(parsed.query).items()}
         parts = [p for p in parsed.path.split("/") if p]
         try:
-            if parts[:1] == ["records"] and len(parts) == 3:
-                return self._record_one(fixture, parts[1], parts[2], params)
-            if parts == ["records", "search"]:
+            # All endpoints under /api/v1/
+            if parts[:2] == ["api", "v1"] and parts[2:3] == ["records"] and len(parts) == 5:
+                return self._record_one(fixture, parts[3], parts[4], params)
+            if parts[:2] == ["api", "v1"] and parts[2:4] == ["records", "search"]:
                 return self._record_search(fixture, params)
-            if parts == ["records"]:
+            if parts[:2] == ["api", "v1"] and parts[2:3] == ["records"] and len(parts) == 3:
                 return self._record_list(fixture, params)
-            if len(parts) == 3 and parts[0] == "files" and parts[2] == "metadata":
-                return self._file_metadata(fixture, parts[1])
-            if len(parts) == 3 and parts[0] == "files" and parts[2] == "content":
-                return self._file_content(fixture, parts[1])
+            if len(parts) == 5 and parts[:3] == ["api", "v1", "files"] and parts[4] == "metadata":
+                return self._file_metadata(fixture, parts[3])
+            if len(parts) == 5 and parts[:3] == ["api", "v1", "files"] and parts[4] == "content":
+                return self._file_content(fixture, parts[3])
         except (BrokenPipeError, ConnectionResetError):
             return None
         return self._send(404, {"error": "not found"})

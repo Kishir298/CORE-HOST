@@ -220,10 +220,12 @@ class HttpDataReader(RescsDataReader):
         owner_scope: str | None,
         allow_cross_owner: bool = False,
         timeout: float = RESCS_REQUEST_TIMEOUT,
+        api_key: str | None = None,
     ) -> None:
         super().__init__(owner_scope, allow_cross_owner)
         self._endpoint = (endpoint or "").rstrip("/")
         self._timeout = float(timeout) if timeout else RESCS_REQUEST_TIMEOUT
+        self._api_key = api_key
 
     def _url(self, path: str, params: dict | None = None) -> str:
         url = f"{self._endpoint}{path}"
@@ -236,10 +238,14 @@ class HttpDataReader(RescsDataReader):
         return url
 
     def _get_json(self, path: str, params: dict | None = None) -> Any:
+        headers = {"Accept": "application/json"}
+        if self._api_key:
+            headers["X-API-Key"] = self._api_key
         try:
-            with urllib.request.urlopen(
-                self._url(path, params), timeout=self._timeout
-            ) as response:
+            req = urllib.request.Request(
+                self._url(path, params), headers=headers
+            )
+            with urllib.request.urlopen(req, timeout=self._timeout) as response:
                 body = response.read().decode("utf-8")
         except urllib.error.HTTPError as exc:
             if exc.code == 404:
@@ -263,7 +269,7 @@ class HttpDataReader(RescsDataReader):
     ) -> dict[str, Any]:
         effective_owner = self._check_owner(owner)
         data = self._get_json(
-            f"/records/{urllib.parse.quote(namespace)}/{urllib.parse.quote(key)}",
+            f"/api/v1/records/{urllib.parse.quote(namespace)}/{urllib.parse.quote(key)}",
             {"owner": effective_owner},
         )
         record = (data or {}).get("record", data)
@@ -290,7 +296,7 @@ class HttpDataReader(RescsDataReader):
     ) -> list[dict[str, Any]]:
         effective_owner = self._check_owner(owner)
         return self._collection(
-            "/records",
+            "/api/v1/records",
             {
                 "namespace": namespace,
                 "key_prefix": key_prefix,
@@ -307,7 +313,7 @@ class HttpDataReader(RescsDataReader):
     ) -> list[dict[str, Any]]:
         effective_owner = self._check_owner(owner)
         return self._collection(
-            "/records/search",
+            "/api/v1/records/search",
             {
                 "query": query,
                 "namespace": namespace,
@@ -317,7 +323,7 @@ class HttpDataReader(RescsDataReader):
         )
 
     def get_file_metadata(self, file_id: str) -> dict[str, Any]:
-        data = self._get_json(f"/files/{urllib.parse.quote(file_id)}/metadata")
+        data = self._get_json(f"/api/v1/files/{urllib.parse.quote(file_id)}/metadata")
         meta = (data or {}).get("file", data)
         if not isinstance(meta, dict) or not meta.get("id"):
             raise DataNotFound("File was not found.")
@@ -326,7 +332,7 @@ class HttpDataReader(RescsDataReader):
     def get_file_bytes(self, file_id: str) -> tuple[dict[str, Any], bytes]:
         import base64
 
-        data = self._get_json(f"/files/{urllib.parse.quote(file_id)}/content")
+        data = self._get_json(f"/api/v1/files/{urllib.parse.quote(file_id)}/content")
         if not isinstance(data, dict):
             raise DataRetrievalFailed("Invalid file content response.")
         meta = data.get("file", {})
