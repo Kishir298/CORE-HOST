@@ -227,8 +227,8 @@ class RuntimeHistory:
 
 
 __all__ = [
+    "EntityType",
     "RuntimeHistory",
     "RuntimeRecord",
-    "EntityType",
     "RuntimeStatus",
 ]

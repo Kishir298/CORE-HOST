@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from core.rescs.adapter import RescsAdapter
 from core.communication.devices import DeviceIdentity
+from core.rescs.adapter import RescsAdapter
 
 
 class RescsDeviceProxy:
@@ -54,7 +54,7 @@ class RescsDeviceProxy:
                 expected_prefix = self._get_device_namespace(device)
                 if not original_namespace.startswith(expected_prefix):
                     raise ValueError(
-                        f"Access denied: cannot access other device's namespace"
+                        "Access denied: cannot access other device's namespace"
                     )
             else:
                 # Rewrite to device-scoped namespace
@@ -124,7 +124,7 @@ class RescsDeviceProxy:
                 expected_prefix = self._get_device_namespace(device).rstrip(".")
                 if not original_owner.startswith(expected_prefix):
                     raise ValueError(
-                        f"Access denied: cannot access other device's owner scope"
+                        "Access denied: cannot access other device's owner scope"
                     )
             else:
                 # Rewrite to device-scoped owner
@@ -188,7 +188,7 @@ class RescsDeviceProxy:
             # Verify it's this device's namespace
             expected = self._get_device_namespace(device)
             if not namespace.startswith(expected):
-                raise ValueError(f"Access denied: cannot access other device's namespace")
+                raise ValueError("Access denied: cannot access other device's namespace")
             transformed_namespace = namespace
         else:
             transformed_namespace = f"{self._get_device_namespace(device)}{namespace}"
@@ -199,7 +199,7 @@ class RescsDeviceProxy:
             if owner.startswith(self.DEVICE_PREFIX):
                 expected = self._get_device_namespace(device).rstrip(".")
                 if not owner.startswith(expected):
-                    raise ValueError(f"Access denied: cannot access other device's owner scope")
+                    raise ValueError("Access denied: cannot access other device's owner scope")
                 transformed_owner = owner
             else:
                 transformed_owner = f"{self._get_device_namespace(device)}{owner}"

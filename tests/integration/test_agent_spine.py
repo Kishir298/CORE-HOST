@@ -3,7 +3,6 @@ Agent assignment spine — preserves legacy assign API (device_id only)
 while verifying capability-driven assignment and auto-release.
 """
 
-import pytest
 
 from core.application import CoreApplication
 from core.communication import Message

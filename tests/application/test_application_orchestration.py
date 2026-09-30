@@ -1,7 +1,6 @@
 import pytest
 
 from core.application import CoreApplication
-from core.events import EventBus
 from core.health.models import HealthStatus
 from core.runtime import RuntimeState
 from core.services.models import ServiceStatus

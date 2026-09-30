@@ -124,7 +124,7 @@ def _expect_close(sock, timeout=3.0):
     sock.settimeout(timeout)
     try:
         data = sock.recv(4)
-    except (socket.timeout, OSError):
+    except (TimeoutError, OSError):
         return
     assert data == b"" or len(data) < 4
 

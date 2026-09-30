@@ -347,8 +347,8 @@ class HttpDataReader(RescsDataReader):
 
 
 __all__ = [
-    "RescsDataReader",
+    "DEFAULT_NAMESPACE",
     "AdapterDataReader",
     "HttpDataReader",
-    "DEFAULT_NAMESPACE",
+    "RescsDataReader",
 ]

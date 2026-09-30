@@ -72,7 +72,7 @@ def test_transport_preserves_request_identity():
 def test_transport_endpoint_lifecycle():
     transport: Transport = LocalTransport()
 
-    handler: MessageHandler = lambda message: None  # noqa: E731
+    handler: MessageHandler = lambda message: None
 
     transport.register("a", handler)
     transport.register("b", handler)

@@ -119,10 +119,10 @@ def paginate(
 
 
 __all__ = [
-    "RECORD_FIELDS",
     "FILE_FIELDS",
-    "normalize_record",
+    "RECORD_FIELDS",
     "normalize_file_metadata",
+    "normalize_record",
     "order_records",
     "paginate",
 ]

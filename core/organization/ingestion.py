@@ -451,9 +451,9 @@ __all__ = [
     "REQUIRED_RESOURCE_FIELDS",
     "IngestionError",
     "InvalidResourceData",
-    "RescsUnavailable",
     "RescsResourceNotFound",
-    "validate_rescs_resource",
-    "normalize_resource",
+    "RescsUnavailable",
     "ResourceIngestor",
+    "normalize_resource",
+    "validate_rescs_resource",
 ]

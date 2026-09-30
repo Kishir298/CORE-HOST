@@ -8,8 +8,6 @@ import struct
 import threading
 import time
 
-import pytest
-
 from core.communication import Message
 from core.communication.devices import DeviceRegistry
 from core.communication.protocol import (
@@ -168,7 +166,7 @@ def _expect_close(sock):
     sock.settimeout(2.0)
     try:
         data = sock.recv(4)
-    except (socket.timeout, OSError):
+    except (TimeoutError, OSError):
         return
     assert data == b"" or len(data) < 4
 

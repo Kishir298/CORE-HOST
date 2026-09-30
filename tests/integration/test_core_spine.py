@@ -10,10 +10,7 @@ hardware, using InMemoryRescsAdapter and LocalTransport (and TcpTransport)
 on the same 32GB/1TB Windows host.
 """
 
-import tempfile
-from pathlib import Path
 
-import pytest
 
 from core.application import CoreApplication
 from core.communication import Message, MessageSerializer, TcpTransport

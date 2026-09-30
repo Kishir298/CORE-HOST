@@ -9,7 +9,6 @@ from core.errors import (
 
 from .models import Service, ServiceStatus
 
-
 ServiceHandler = Callable[..., Any]
 
 

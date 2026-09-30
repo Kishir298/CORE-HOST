@@ -303,7 +303,7 @@ class FileRescsAdapter(RescsAdapter):
                 json.dump(data, f, indent=2)
             temp.replace(self._path)
         except Exception as exc:
-            raise IOError(f"Failed to persist R.E.S.C.S. file: {exc}") from exc
+            raise OSError(f"Failed to persist R.E.S.C.S. file: {exc}") from exc
 
     def persist_resource(self, resource: Resource) -> None:
         with self._lock:
@@ -446,9 +446,9 @@ class HttpRescsAdapter(RescsAdapter):
             # 404 is not an error for fetch – return None
             if exc.code == 404:
                 return None
-            raise IOError(f"R.E.S.C.S. HTTP {method} {path} -> {exc.code} {exc.reason}") from exc
+            raise OSError(f"R.E.S.C.S. HTTP {method} {path} -> {exc.code} {exc.reason}") from exc
         except Exception as exc:
-            raise IOError(f"R.E.S.C.S. HTTP {method} {path} failed: {exc}") from exc
+            raise OSError(f"R.E.S.C.S. HTTP {method} {path} failed: {exc}") from exc
 
     def _resource_from_dict(self, data: dict[str, Any]) -> Resource:
         from datetime import datetime
@@ -773,8 +773,8 @@ class HttpRescsAdapter(RescsAdapter):
 
 
 __all__ = [
-    "RescsAdapter",
-    "InMemoryRescsAdapter",
     "FileRescsAdapter",
     "HttpRescsAdapter",
+    "InMemoryRescsAdapter",
+    "RescsAdapter",
 ]

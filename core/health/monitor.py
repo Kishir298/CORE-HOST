@@ -4,7 +4,6 @@ from threading import RLock
 
 from core.health.models import HealthResult, HealthStatus
 
-
 HealthCheck = Callable[[], HealthResult]
 
 

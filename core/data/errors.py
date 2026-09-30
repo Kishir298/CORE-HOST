@@ -43,9 +43,9 @@ class DataRetrievalFailed(DataError):
 
 
 __all__ = [
+    "DataAccessDenied",
     "DataError",
     "DataNotFound",
-    "DataAccessDenied",
-    "DataSourceUnavailable",
     "DataRetrievalFailed",
+    "DataSourceUnavailable",
 ]

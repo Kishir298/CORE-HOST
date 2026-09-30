@@ -6,7 +6,6 @@ from core.errors import MessageError
 
 from .models import Message
 
-
 MessageHandler = Callable[[Message], Message | None]
 
 

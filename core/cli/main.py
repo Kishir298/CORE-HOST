@@ -237,7 +237,12 @@ def _print_agents(app: CoreApplication) -> None:
 def _print_version(app: CoreApplication, client_version: str | None = None) -> None:
     """Print version and negotiation (preserves legacy 0.2.1 output)."""
 
-    from core.version import CORE_VERSION, LEGACY_VERSIONS, SUPPORTED_VERSIONS, negotiate
+    from core.version import (
+        CORE_VERSION,
+        LEGACY_VERSIONS,
+        SUPPORTED_VERSIONS,
+        negotiate,
+    )
 
     negotiated = negotiate(client_version)
     print(f"C.O.R.E. v{CORE_VERSION}")

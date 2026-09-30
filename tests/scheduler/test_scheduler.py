@@ -1,7 +1,13 @@
 import pytest
 
 from core.resources.models import create_device_resource
-from core.scheduler import AgentScheduler, AgentProfile, NoSuitableAgent, ProfileAlreadyRegistered, ProfileNotFound
+from core.scheduler import (
+    AgentProfile,
+    AgentScheduler,
+    NoSuitableAgent,
+    ProfileAlreadyRegistered,
+    ProfileNotFound,
+)
 from core.scheduler.models import Assignment
 
 

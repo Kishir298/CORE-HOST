@@ -12,9 +12,9 @@ __all__ = [
     "AgentProfile",
     "AgentScheduler",
     "Assignment",
-    "SchedulerError",
-    "ProfileAlreadyRegistered",
-    "ProfileNotFound",
     "AssignmentNotFound",
     "NoSuitableAgent",
+    "ProfileAlreadyRegistered",
+    "ProfileNotFound",
+    "SchedulerError",
 ]

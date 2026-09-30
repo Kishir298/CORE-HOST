@@ -5,9 +5,10 @@ import socket
 import struct
 import threading
 import time
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from core.errors import MessageError
 
@@ -93,7 +94,7 @@ class TcpTransport(Transport):
         device_registry: DeviceRegistry | None = None,
         event_bus: Any | None = None,
         data_organizer: Any | None = None,
-        connection_lease_seconds: int | float | None = None,
+        connection_lease_seconds: float | None = None,
         log_external_tokens: bool = False,
         logger: Any | None = None,
     ) -> None:
@@ -315,7 +316,6 @@ class TcpTransport(Transport):
             except Exception:
                 if self.is_external:
                     raise
-                pass
 
     def stop(self) -> None:
         """Stop the transport, close sessions, retain endpoints."""
@@ -620,7 +620,6 @@ class TcpTransport(Transport):
             raise _MessageError("Failed to deliver device message.") from exc
         with self._lock:
             self._device_messages_routed += 1
-        return None
 
     def list_devices(self, *, include_offline: bool = True) -> list[dict]:
         """Return discovery entries for registered devices."""
@@ -758,7 +757,7 @@ class TcpTransport(Transport):
             while not self._stop_event.is_set():
                 try:
                     conn, addr = sock.accept()
-                except socket.timeout:
+                except TimeoutError:
                     continue
                 except OSError:
                     break
@@ -1924,7 +1923,7 @@ class TcpTransport(Transport):
                     return None
             try:
                 chunk = conn.recv(n - len(buf))
-            except socket.timeout:
+            except TimeoutError:
                 if session is not None and (
                     session.is_lease_expired(self._time())
                     or self._time() - session.last_activity > IDLE_CONNECTION_TIMEOUT
@@ -1951,21 +1950,21 @@ class TcpTransport(Transport):
 
 
 __all__ = [
-    "TcpTransport",
-    "MAX_FRAME_SIZE",
-    "MAX_CONNECTIONS",
-    "HEADER_SIZE",
-    "TLS_HANDSHAKE_TIMEOUT",
-    "IDLE_CONNECTION_TIMEOUT",
-    "MINIMUM_TLS_VERSION",
-    "SUPPORTED_PROTOCOL_VERSION",
-    "HANDSHAKE_TYPE",
-    "HANDSHAKE_RESPONSE_TYPE",
-    "DEVICE_REGISTER",
-    "DEVICE_REGISTER_RESPONSE",
     "DEVICE_DISCOVER",
     "DEVICE_DISCOVER_RESPONSE",
+    "DEVICE_ERROR",
     "DEVICE_INFO",
     "DEVICE_INFO_RESPONSE",
-    "DEVICE_ERROR",
+    "DEVICE_REGISTER",
+    "DEVICE_REGISTER_RESPONSE",
+    "HANDSHAKE_RESPONSE_TYPE",
+    "HANDSHAKE_TYPE",
+    "HEADER_SIZE",
+    "IDLE_CONNECTION_TIMEOUT",
+    "MAX_CONNECTIONS",
+    "MAX_FRAME_SIZE",
+    "MINIMUM_TLS_VERSION",
+    "SUPPORTED_PROTOCOL_VERSION",
+    "TLS_HANDSHAKE_TIMEOUT",
+    "TcpTransport",
 ]

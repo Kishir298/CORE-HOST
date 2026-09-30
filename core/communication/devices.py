@@ -117,7 +117,7 @@ class DeviceRecord:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "DeviceRecord":
+    def from_dict(cls, data: dict[str, Any]) -> DeviceRecord:
         """Reconstruct a record from :meth:`to_dict` output.
 
         Raises ``ValueError`` for missing/invalid identity fields.
@@ -300,9 +300,7 @@ class DeviceRegistry:
                 existing.last_seen = now
                 # A reconnect keeps the established join_name unless the
                 # client explicitly provides a (non-blank) new one.
-                if isinstance(join_name, str) and join_name.strip():
-                    existing.join_name = resolved_join
-                elif not existing.join_name:
+                if isinstance(join_name, str) and join_name.strip() or not existing.join_name:
                     existing.join_name = resolved_join
                 record = existing
             else:

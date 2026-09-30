@@ -3,12 +3,12 @@ from .runtime import Runtime, RuntimeError
 from .state import ComponentState, RuntimeState
 
 __all__ = [
+    "ComponentState",
+    "EntityType",
     "Runtime",
     "RuntimeError",
-    "ComponentState",
-    "RuntimeState",
     "RuntimeHistory",
     "RuntimeRecord",
-    "EntityType",
+    "RuntimeState",
     "RuntimeStatus",
 ]

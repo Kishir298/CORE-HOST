@@ -10,13 +10,13 @@ import socket
 import struct
 import time
 
+from core.communication import Message
 from core.communication.connection import (
     SESSION_TOKEN_BYTES,
     ConnectionSession,
 )
 from core.communication.serializer import MessageSerializer
 from core.communication.tcp import CONNECTION_LEASE_SECONDS, TcpTransport
-from core.communication import Message
 from core.security import SecurityManager
 from core.security.models import Identity, IdentityType, Permission
 from core.security.provider import TokenAuthenticationProvider
@@ -129,7 +129,7 @@ def _expect_close(sock):
     sock.settimeout(2.0)
     try:
         data = sock.recv(4)
-    except (socket.timeout, OSError):
+    except (TimeoutError, OSError):
         return
     assert data == b"" or len(data) < 4
 

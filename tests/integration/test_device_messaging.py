@@ -521,7 +521,6 @@ def test_router_device_routing_coexists_with_static_routes():
     class _FakeDeviceTransport(LocalTransport):
         def deliver_to_device(self, message):
             delivered["msg"] = message
-            return None
 
     router.set_transport(_FakeDeviceTransport())
     msg = Message(

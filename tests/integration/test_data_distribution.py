@@ -18,8 +18,6 @@ import threading
 import time
 import uuid
 
-import pytest
-
 from core.communication import Message
 from core.communication.protocol import (
     DATA_ERROR,
@@ -34,7 +32,6 @@ from core.events import EventBus
 from core.security import SecurityManager
 from core.security.models import Identity, IdentityType, Permission
 from core.security.provider import TokenAuthenticationProvider
-
 from tests.data.rescs_http_fixture import RescsFixture
 
 DEVICE_IDS = ("device-a", "device-b", "device-c")

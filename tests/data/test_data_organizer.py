@@ -9,10 +9,10 @@ import hashlib
 
 import pytest
 
+from core.communication.devices import DeviceRegistry
 from core.communication.protocol import (
     DATA_ERROR,
     DATA_RESPONSE,
-    DEFAULT_LIMIT,
 )
 from core.data.errors import (
     DataAccessDenied,
@@ -29,7 +29,6 @@ from core.data.normalize import (
 from core.data.organizer import DataOrganizer
 from core.data.requests import validate_data_request, validate_pagination
 from core.data.rescs_reader import AdapterDataReader, RescsDataReader
-from core.communication.devices import DeviceRegistry
 from core.events import EventBus
 from core.rescs import InMemoryRescsAdapter
 from core.resources import Resource

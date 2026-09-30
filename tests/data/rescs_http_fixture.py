@@ -106,7 +106,7 @@ class _Handler(BaseHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError):
             pass
 
-    def do_GET(self):  # noqa: N802 - http.server convention
+    def do_GET(self):
         fixture = self.server.fixture  # type: ignore[attr-defined]
         mode = fixture.fail_mode
         if mode == "timeout":
@@ -209,7 +209,7 @@ class RescsFixture:
         host, port = self._server.server_address
         return f"http://{host}:{port}"
 
-    def start(self) -> "RescsFixture":
+    def start(self) -> RescsFixture:
         """Start serving on an ephemeral localhost port."""
         server = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
         server.fixture = self  # type: ignore[attr-defined]
@@ -238,7 +238,7 @@ class RescsFixture:
                 pass
             self._thread = None
 
-    def __enter__(self) -> "RescsFixture":
+    def __enter__(self) -> RescsFixture:
         return self.start()
 
     def __exit__(self, *exc) -> None:

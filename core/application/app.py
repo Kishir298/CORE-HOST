@@ -10,13 +10,13 @@ from core.events import (
     COMPONENT_STARTED,
     DEVICE_CONNECTED,
     DEVICE_DISCONNECTED,
-    EventBus,
     HEALTH_CHANGED,
     MESSAGE_SENT,
     RESOURCE_REGISTERED,
     RESOURCE_REMOVED,
     SYSTEM_STARTED,
     SYSTEM_STOPPED,
+    EventBus,
 )
 from core.health import HealthMonitor, HealthResult, HealthStatus
 from core.logging import CoreLogger
@@ -42,11 +42,13 @@ from core.services import (
     ServiceManager,
 )
 from core.version import (
-    __version__ as CORE_VERSION,
     LEGACY_VERSIONS,
     SUPPORTED_VERSIONS,
     is_legacy,
     negotiate,
+)
+from core.version import (
+    __version__ as CORE_VERSION,
 )
 
 DEFAULT_CONFIG_PATH = Path("config/core.yaml")

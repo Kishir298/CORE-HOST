@@ -19,7 +19,6 @@ from core.communication.connection import ConnectionSession, ConnectionState
 from core.communication.serializer import MessageSerializer
 from core.communication.tcp import (
     HANDSHAKE_RESPONSE_TYPE,
-    HANDSHAKE_TYPE,
     HEADER_SIZE,
     IDLE_CONNECTION_TIMEOUT,
     MAX_CONNECTIONS,
@@ -135,7 +134,7 @@ def _expect_close(sock):
     sock.settimeout(2.0)
     try:
         data = sock.recv(4)
-    except (socket.timeout, OSError):
+    except (TimeoutError, OSError):
         return
     assert data == b"" or len(data) < 4
 

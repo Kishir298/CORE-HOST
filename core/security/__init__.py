@@ -15,17 +15,17 @@ from .provider import (
 )
 
 __all__ = [
+    "AuthenticationError",
+    "AuthenticationProvider",
+    "AuthorizationError",
+    "ExistenceAuthenticationProvider",
     "Identity",
-    "IdentityType",
-    "Permission",
-    "SecurityManager",
-    "SecurityPolicy",
-    "SecurityError",
     "IdentityAlreadyRegistered",
     "IdentityNotFound",
-    "AuthenticationError",
-    "AuthorizationError",
-    "AuthenticationProvider",
-    "ExistenceAuthenticationProvider",
+    "IdentityType",
+    "Permission",
+    "SecurityError",
+    "SecurityManager",
+    "SecurityPolicy",
     "TokenAuthenticationProvider",
 ]

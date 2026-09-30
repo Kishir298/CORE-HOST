@@ -20,7 +20,13 @@ from urllib.parse import urlparse
 
 from . import geo
 from .capabilities import host_facts
-from .models import device_entry, envelope, event_entry, health_entry, redact, session_entry
+from .models import (
+    device_entry,
+    envelope,
+    event_entry,
+    health_entry,
+    session_entry,
+)
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765

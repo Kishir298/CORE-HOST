@@ -13,7 +13,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-
 __version__ = "0.4.0"
 
 # Canonical alias: core.cli.main and docs reference CORE_VERSION.
@@ -35,7 +34,7 @@ class SemanticVersion:
     patch: int
 
     @classmethod
-    def parse(cls, version: str) -> "SemanticVersion":
+    def parse(cls, version: str) -> SemanticVersion:
         if not isinstance(version, str) or not version.strip():
             raise ValueError(f"Invalid version string: {version!r}")
         v = version.strip().removeprefix("v").removeprefix("V")
@@ -54,16 +53,16 @@ class SemanticVersion:
     def __str__(self) -> str:
         return f"{self.major}.{self.minor}.{self.patch}"
 
-    def __lt__(self, other: "SemanticVersion") -> bool:
+    def __lt__(self, other: SemanticVersion) -> bool:
         return (self.major, self.minor, self.patch) < (other.major, other.minor, other.patch)
 
-    def __le__(self, other: "SemanticVersion") -> bool:
+    def __le__(self, other: SemanticVersion) -> bool:
         return (self.major, self.minor, self.patch) <= (other.major, other.minor, other.patch)
 
-    def __gt__(self, other: "SemanticVersion") -> bool:
+    def __gt__(self, other: SemanticVersion) -> bool:
         return (self.major, self.minor, self.patch) > (other.major, other.minor, other.patch)
 
-    def __ge__(self, other: "SemanticVersion") -> bool:
+    def __ge__(self, other: SemanticVersion) -> bool:
         return (self.major, self.minor, self.patch) >= (other.major, other.minor, other.patch)
 
 
@@ -168,17 +167,17 @@ def legacy_payload_adapter(payload: dict, target_version: str | None = None) -> 
 
 
 __all__ = [
-    "__version__",
     "CORE_VERSION",
-    "SUPPORTED_VERSIONS",
     "LEGACY_VERSIONS",
-    "MIN_VERSION_TLS",
     "MIN_VERSION_AUTO_ASSIGN",
+    "MIN_VERSION_TLS",
+    "SUPPORTED_VERSIONS",
     "SemanticVersion",
-    "is_supported",
+    "__version__",
     "is_legacy",
-    "negotiate",
-    "supports_tls",
-    "supports_auto_assign",
+    "is_supported",
     "legacy_payload_adapter",
+    "negotiate",
+    "supports_auto_assign",
+    "supports_tls",
 ]

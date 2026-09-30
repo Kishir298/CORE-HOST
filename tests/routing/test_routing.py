@@ -1,7 +1,7 @@
 import pytest
 
 from core.communication import LocalCommunication, Message
-from core.errors import MessageError, RoutingError
+from core.errors import RoutingError
 from core.routing import Router
 
 

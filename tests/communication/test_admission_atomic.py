@@ -84,7 +84,6 @@ def test_rejected_connections_counted():
 
 
 def test_failed_tls_releases_slot(monkeypatch):
-    import ssl as _ssl
 
     t = TcpTransport(host="127.0.0.1", port=0)
     assert t.try_reserve_slot() is True

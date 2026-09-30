@@ -1,7 +1,6 @@
 import pytest
 
 from core.security import (
-    AuthenticationError,
     AuthorizationError,
     Identity,
     IdentityAlreadyRegistered,

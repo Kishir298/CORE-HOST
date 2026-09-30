@@ -13,8 +13,9 @@ from __future__ import annotations
 
 import base64
 import hashlib
+from collections.abc import Callable
 from threading import RLock
-from typing import Any, Callable
+from typing import Any
 
 from core.communication.models import Message
 from core.communication.protocol import (

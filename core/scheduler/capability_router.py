@@ -3,8 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from .models import AgentProfile
-
 
 @dataclass
 class ModelProfile:
@@ -258,7 +256,7 @@ class CapabilityRouter:
         if preferred_profile_id:
             profile = self._model_profiles.get(preferred_profile_id)
             if profile and profile.matches_capabilities(device_caps):
-                if self._profile_usage.get(profile_id, 0) < profile.max_concurrent:
+                if self._profile_usage.get(preferred_profile_id, 0) < profile.max_concurrent:
                     return profile
 
         # Score all compatible profiles

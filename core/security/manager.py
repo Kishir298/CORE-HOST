@@ -138,7 +138,7 @@ class SecurityManager:
             raise ValueError("Authentication provider cannot be None.")
 
         if not hasattr(provider, "authenticate") or not callable(
-            getattr(provider, "authenticate")
+            provider.authenticate
         ):
             raise TypeError("Provider must implement authenticate().")
 

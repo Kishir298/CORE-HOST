@@ -4,6 +4,7 @@ from core.version import (
     LEGACY_VERSIONS,
     SUPPORTED_VERSIONS,
     SemanticVersion,
+    __version__,
     is_legacy,
     is_supported,
     legacy_payload_adapter,
@@ -11,7 +12,6 @@ from core.version import (
     supports_auto_assign,
     supports_tls,
 )
-from core.version import __version__
 
 
 def test_version_is_0_4_0():

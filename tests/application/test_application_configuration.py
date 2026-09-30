@@ -4,7 +4,6 @@ from core.application import CoreApplication
 from core.runtime import ComponentState, RuntimeState
 from core.services.models import ServiceStatus
 
-
 MINIMAL_CONFIG = """\
 core:
   name: "C.O.R.E."

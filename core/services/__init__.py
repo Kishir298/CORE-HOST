@@ -9,9 +9,9 @@ from .models import (
 
 __all__ = [
     "Service",
+    "ServiceDispatcher",
+    "ServiceManager",
     "ServiceRequest",
     "ServiceResponse",
     "ServiceStatus",
-    "ServiceDispatcher",
-    "ServiceManager",
 ]

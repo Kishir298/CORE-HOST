@@ -4,7 +4,6 @@ from threading import RLock
 
 from .models import Event
 
-
 EventHandler = Callable[[Event], None]
 
 

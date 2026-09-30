@@ -6,8 +6,8 @@ from .adapter import (
 )
 
 __all__ = [
-    "RescsAdapter",
-    "InMemoryRescsAdapter",
     "FileRescsAdapter",
     "HttpRescsAdapter",
+    "InMemoryRescsAdapter",
+    "RescsAdapter",
 ]

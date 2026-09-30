@@ -111,8 +111,8 @@ class ConnectionSession:
 
 
 __all__ = [
-    "ConnectionSession",
-    "ConnectionState",
     "SESSION_TOKEN_BYTES",
     "SESSION_TOKEN_ENCODING",
+    "ConnectionSession",
+    "ConnectionState",
 ]
