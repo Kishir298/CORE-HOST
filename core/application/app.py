@@ -827,8 +827,14 @@ class CoreApplication:
                 fallback = self.configuration.get("rescs.fallback", True)
                 if not isinstance(fallback, bool):
                     fallback = True
+                api_key = self.configuration.get("rescs.api_key", None)
+                if api_key is not None and not isinstance(api_key, str):
+                    api_key = None
                 self.rescs = HttpRescsAdapter(
-                    endpoint=endpoint, timeout=float(timeout), fallback=bool(fallback)
+                    endpoint=endpoint,
+                    timeout=float(timeout),
+                    fallback=bool(fallback),
+                    api_key=api_key,
                 )
                 self.logger.info(
                     f"R.E.S.C.S. adapter switched to Http ({endpoint}, timeout={timeout})."
@@ -2378,11 +2384,13 @@ class CoreApplication:
                 adapter, "endpoint", "http://localhost:8081"
             )
             timeout = getattr(adapter, "_timeout", 2.0) or 2.0
+            api_key = getattr(adapter, "_api_key", None)
             return HttpDataReader(
                 endpoint=endpoint,
                 owner_scope=owner_scope,
                 allow_cross_owner=allow_cross_owner,
                 timeout=timeout,
+                api_key=api_key,
             )
         return AdapterDataReader(
             adapter,

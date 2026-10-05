@@ -165,6 +165,8 @@ class AdapterDataReader(RescsDataReader):
         namespace: str | None = None,
         key_prefix: str | None = None,
         owner: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
     ) -> list[dict[str, Any]]:
         effective_owner = self._check_owner(owner)
         result = []
@@ -176,6 +178,10 @@ class AdapterDataReader(RescsDataReader):
             if effective_owner is not None and record["owner"] != effective_owner:
                 continue
             result.append(record)
+        if offset is not None:
+            result = result[offset:]
+        if limit is not None:
+            result = result[:limit]
         return result
 
     def search_records(
@@ -184,6 +190,8 @@ class AdapterDataReader(RescsDataReader):
         namespace: str | None = None,
         key_prefix: str | None = None,
         owner: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
     ) -> list[dict[str, Any]]:
         needle = (query or "").lower()
         result = []
@@ -195,6 +203,10 @@ class AdapterDataReader(RescsDataReader):
             ]
             if any(needle in hay.lower() for hay in haystacks):
                 result.append(record)
+        if offset is not None:
+            result = result[offset:]
+        if limit is not None:
+            result = result[:limit]
         return result
 
     def get_file_metadata(self, file_id: str) -> dict[str, Any]:
@@ -264,12 +276,39 @@ class HttpDataReader(RescsDataReader):
         except Exception as exc:
             raise DataRetrievalFailed("Invalid R.E.S.C.S. response.") from exc
 
+    def _get_bytes(self, path: str, params: dict | None = None) -> bytes:
+        """Fetch binary content with bounded reads."""
+        headers = {"Accept": "application/octet-stream"}
+        if self._api_key:
+            headers["X-API-Key"] = self._api_key
+        try:
+            req = urllib.request.Request(
+                self._url(path, params), headers=headers
+            )
+            with urllib.request.urlopen(req, timeout=self._timeout) as response:
+                # Bound the read to prevent memory exhaustion
+                content = response.read(10 * 1024 * 1024)  # 10MB max
+        except urllib.error.HTTPError as exc:
+            if exc.code == 404:
+                raise DataNotFound("Requested data was not found.")
+            if exc.code in (401, 403):
+                raise DataAccessDenied("Access denied by R.E.S.C.S..")
+            raise DataRetrievalFailed("R.E.S.C.S. request failed.")
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            raise DataSourceUnavailable(
+                "R.E.S.C.S. service is unavailable."
+            ) from exc
+        except Exception as exc:
+            raise DataRetrievalFailed("R.E.S.C.S. request failed.") from exc
+        return content
+
     def get_record(
         self, namespace: str, key: str, owner: str | None = None
     ) -> dict[str, Any]:
         effective_owner = self._check_owner(owner)
+        # Records are fetched by namespace/key path
         data = self._get_json(
-            f"/api/v1/records/{urllib.parse.quote(namespace)}/{urllib.parse.quote(key)}",
+            f"/api/v1/records/{urllib.parse.quote(namespace, safe='')}/{urllib.parse.quote(key, safe='')}",
             {"owner": effective_owner},
         )
         record = (data or {}).get("record", data)
@@ -277,32 +316,51 @@ class HttpDataReader(RescsDataReader):
             raise DataNotFound(f"Record was not found: {namespace}/{key}.")
         return record
 
-    def _collection(self, path: str, params: dict) -> list[dict]:
+    def _collection(
+        self, path: str, params: dict
+    ) -> tuple[list[dict], int]:
+        """
+        Fetch a collection with pagination support.
+        Returns (records, total_count).
+        """
         data = self._get_json(path, params)
+        records: list[dict] = []
+        total = 0
         if isinstance(data, dict):
             for key in ("records", "items", "data"):
                 if isinstance(data.get(key), list):
-                    return [r for r in data[key] if isinstance(r, dict)]
-            return []
-        if isinstance(data, list):
-            return [r for r in data if isinstance(r, dict)]
-        return []
+                    records = [r for r in data[key] if isinstance(r, dict)]
+                    break
+            # Remote total takes precedence
+            if "total" in data and isinstance(data["total"], int):
+                total = data["total"]
+            elif not total and records:
+                total = len(records)
+        elif isinstance(data, list):
+            records = [r for r in data if isinstance(r, dict)]
+            total = len(records)
+        return records, total
 
     def list_records(
         self,
         namespace: str | None = None,
         key_prefix: str | None = None,
         owner: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
     ) -> list[dict[str, Any]]:
         effective_owner = self._check_owner(owner)
-        return self._collection(
-            "/api/v1/records",
-            {
-                "namespace": namespace,
-                "key_prefix": key_prefix,
-                "owner": effective_owner,
-            },
-        )
+        params = {
+            "namespace": namespace,
+            "key_prefix": key_prefix,
+            "owner": effective_owner,
+        }
+        if limit is not None:
+            params["limit"] = limit
+        if offset is not None:
+            params["offset"] = offset
+        records, _ = self._collection("/api/v1/records", params)
+        return records
 
     def search_records(
         self,
@@ -310,35 +368,41 @@ class HttpDataReader(RescsDataReader):
         namespace: str | None = None,
         key_prefix: str | None = None,
         owner: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
     ) -> list[dict[str, Any]]:
         effective_owner = self._check_owner(owner)
-        return self._collection(
-            "/api/v1/records/search",
-            {
-                "query": query,
-                "namespace": namespace,
-                "key_prefix": key_prefix,
-                "owner": effective_owner,
-            },
-        )
+        params = {
+            "query": query,
+            "namespace": namespace,
+            "key_prefix": key_prefix,
+            "owner": effective_owner,
+        }
+        if limit is not None:
+            params["limit"] = limit
+        if offset is not None:
+            params["offset"] = offset
+        records, _ = self._collection("/api/v1/records/search", params)
+        return records
 
     def get_file_metadata(self, file_id: str) -> dict[str, Any]:
-        data = self._get_json(f"/api/v1/files/{urllib.parse.quote(file_id)}/metadata")
+        data = self._get_json(f"/api/v1/files/{urllib.parse.quote(file_id, safe='')}/metadata")
         meta = (data or {}).get("file", data)
         if not isinstance(meta, dict) or not meta.get("id"):
             raise DataNotFound("File was not found.")
         return meta
 
     def get_file_bytes(self, file_id: str) -> tuple[dict[str, Any], bytes]:
+        # Fetch metadata first
+        meta = self.get_file_metadata(file_id)
+        # Fetch binary content - the server returns base64 encoded content
         import base64
-
-        data = self._get_json(f"/api/v1/files/{urllib.parse.quote(file_id)}/content")
+        data = self._get_json(f"/api/v1/files/{urllib.parse.quote(file_id, safe='')}/content")
         if not isinstance(data, dict):
             raise DataRetrievalFailed("Invalid file content response.")
-        meta = data.get("file", {})
         content_b64 = data.get("content_base64")
-        if not isinstance(meta, dict) or not isinstance(content_b64, str):
-            raise DataRetrievalFailed("Invalid file content response.")
+        if not isinstance(content_b64, str):
+            raise DataRetrievalFailed("Invalid file content encoding.")
         try:
             content = base64.b64decode(content_b64, validate=True)
         except Exception as exc:

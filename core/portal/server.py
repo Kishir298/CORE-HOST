@@ -478,6 +478,43 @@ class HostPortal:
 
     # -- HTTP plumbing ------------------------------------------------------
 
+    def _check_portal_origin(self, handler: BaseHTTPRequestHandler) -> None:
+        """Validate request origin for mutation endpoints.
+
+        Checks:
+        - Content-Type must be application/json
+        - Host must be localhost/127.0.0.1/::1
+        - Origin must be same-origin (localhost) or absent
+        - Requires custom header (CSRF protection) for mutations
+        """
+        # Check Content-Type
+        content_type = handler.headers.get("Content-Type", "")
+        if not content_type.startswith("application/json"):
+            raise ValueError("Content-Type must be application/json")
+
+        # Check Host header - must be localhost
+        host = handler.headers.get("Host", "")
+        if host:
+            host_part = host.split(":")[0].lower()
+            if host_part not in ("127.0.0.1", "localhost", "::1", "0.0.0.0"):
+                raise ValueError("Host header must be localhost")
+
+        # Check Origin header - same-origin only
+        origin = handler.headers.get("Origin", "")
+        if origin:
+            try:
+                parsed = urlparse(origin)
+                origin_host = parsed.hostname or ""
+                if origin_host.lower() not in ("127.0.0.1", "localhost", "::1"):
+                    raise ValueError("Origin must be localhost")
+            except Exception:
+                raise ValueError("Invalid Origin header")
+
+        # CSRF protection: require custom header for mutations
+        # This prevents simple cross-origin form submissions
+        if not handler.headers.get("X-Core-Request"):
+            raise ValueError("Missing required header: X-Core-Request")
+
     def _make_handler(self):
         portal = self
 
@@ -565,6 +602,21 @@ class HostPortal:
 
             def do_POST(self) -> None:
                 path = urlparse(self.path).path.rstrip("/") or "/"
+                # Validate origin for mutation endpoints
+                mutation_paths = {
+                    "/api/agents/assign",
+                    "/api/agents/release",
+                    "/api/devices/location",
+                    "/api/location",
+                }
+                if path in mutation_paths:
+                    try:
+                        portal._check_portal_origin(self)
+                    except ValueError as exc:
+                        self._send_json(
+                            envelope(None, ok=False, error=str(exc)), status=403
+                        )
+                        return
                 try:
                     if path == "/api/agents/assign":
                         body = self._read_json()

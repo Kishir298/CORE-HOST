@@ -380,19 +380,18 @@ class HttpRescsAdapter(RescsAdapter):
     in-memory cache so local operation is undisturbed while health
     correctly reports ``healthy=False`` until the remote is reachable.
 
-    Contract (JSON over HTTP):
-      POST   /resources          {resource dict}
-      GET    /resources          -> {resources:[...]} or [...]
-      GET    /resources/{id}     -> {resource dict} or 404
-      DELETE /resources/{id}
-      POST   /runtimes           {record dict}
-      GET    /runtimes           -> {runtimes:[...]} or [...]
-      GET    /health             -> {healthy:bool, resources:int, runtimes:int}
-      POST   /clear
-      POST   /devices            {device identity dict}
-      GET    /devices            -> {devices:[...]} or [...]
-      GET    /devices/{id}       -> {device dict} or 404
-      DELETE /devices/{id}
+    Contract (JSON over HTTP) - RESCS v1 API:
+      POST   /api/v1/records          {record dict}
+      GET    /api/v1/records          -> {records:[...], total:int} or [...]
+      GET    /api/v1/records/{id}     -> {record dict} or 404
+      DELETE /api/v1/records/{id}
+      POST   /api/v1/files            {file dict} (multipart upload at /api/v1/uploads)
+      GET    /api/v1/files            -> {files:[...], total:int} or [...]
+      GET    /api/v1/files/{id}       -> {file metadata} or 404
+      GET    /api/v1/files/{id}/content -> binary content
+      DELETE /api/v1/files/{id}
+      GET    /api/v1/health           -> {healthy:bool, records:int, files:int}
+      POST   /api/v1/uploads          {file upload}
     """
 
     def __init__(
@@ -400,6 +399,7 @@ class HttpRescsAdapter(RescsAdapter):
         endpoint: str = "http://localhost:8081",
         timeout: float = 2.0,
         fallback: bool = True,
+        api_key: str | None = None,
     ) -> None:
         self._endpoint = endpoint.rstrip("/") if endpoint else "http://localhost:8081"
         self._timeout = float(timeout) if timeout else 2.0
@@ -408,6 +408,8 @@ class HttpRescsAdapter(RescsAdapter):
         self._lock = RLock()
         self._last_error: str | None = None
         self._healthy: bool | None = None
+        self._api_key = api_key
+        self._last_durable_success: bool = False
 
     def _url(self, path: str) -> str:
         if not path.startswith("/"):
@@ -426,6 +428,8 @@ class HttpRescsAdapter(RescsAdapter):
         url = self._url(path)
         data = None
         headers = {"Content-Type": "application/json", "Accept": "application/json"}
+        if self._api_key:
+            headers["X-API-Key"] = self._api_key
         if body is not None:
             data = json.dumps(body).encode("utf-8")
 
@@ -443,8 +447,9 @@ class HttpRescsAdapter(RescsAdapter):
                 except Exception:
                     return text
         except urllib.error.HTTPError as exc:
-            # 404 is not an error for fetch – return None
-            if exc.code == 404:
+            # 404 handling: only GET 404 = "not found" (return None)
+            # POST/DELETE/PUT 404 = failure (raise)
+            if exc.code == 404 and method == "GET":
                 return None
             raise OSError(f"R.E.S.C.S. HTTP {method} {path} -> {exc.code} {exc.reason}") from exc
         except Exception as exc:
@@ -507,32 +512,36 @@ class HttpRescsAdapter(RescsAdapter):
             # Always keep fallback in sync
             self._fallback.persist_resource(resource)
             try:
-                self._request("POST", "/resources", resource.to_dict())
+                self._request("POST", "/api/v1/records", resource.to_dict())
                 self._last_error = None
                 self._healthy = True
+                self._last_durable_success = True
             except Exception as exc:
                 self._last_error = str(exc)
                 self._healthy = False
+                self._last_durable_success = False
                 if not self._fallback_enabled:
                     raise
 
     def fetch_resource(self, resource_id: str) -> Resource | None:
         with self._lock:
             try:
-                result = self._request("GET", f"/resources/{resource_id}")
+                result = self._request("GET", f"/api/v1/records/{resource_id}")
                 if result is None:
                     return self._fallback.fetch_resource(resource_id) if self._fallback_enabled else None
-                # Server may wrap in {"resource": {...}} or return dict directly
-                if isinstance(result, dict) and "resource" in result and isinstance(result["resource"], dict):
-                    result = result["resource"]
+                # Server may wrap in {"record": {...}} or return dict directly
+                if isinstance(result, dict) and "record" in result and isinstance(result["record"], dict):
+                    result = result["record"]
                 if isinstance(result, dict) and "resource_id" in result:
                     self._last_error = None
                     self._healthy = True
+                    self._last_durable_success = True
                     return self._resource_from_dict(result)
                 return self._fallback.fetch_resource(resource_id) if self._fallback_enabled else None
             except Exception as exc:
                 self._last_error = str(exc)
                 self._healthy = False
+                self._last_durable_success = False
                 if self._fallback_enabled:
                     return self._fallback.fetch_resource(resource_id)
                 raise
@@ -541,27 +550,29 @@ class HttpRescsAdapter(RescsAdapter):
         with self._lock:
             self._fallback.delete_resource(resource_id)
             try:
-                self._request("DELETE", f"/resources/{resource_id}")
+                self._request("DELETE", f"/api/v1/records/{resource_id}")
                 self._last_error = None
                 self._healthy = True
+                self._last_durable_success = True
             except Exception as exc:
                 self._last_error = str(exc)
                 self._healthy = False
+                self._last_durable_success = False
                 if not self._fallback_enabled:
                     raise
 
     def list_resources(self) -> list[Resource]:
         with self._lock:
             try:
-                result = self._request("GET", "/resources")
+                result = self._request("GET", "/api/v1/records")
                 if result is None:
                     return self._fallback.list_resources()
-                # Normalize: {resources:[...]} or {data:[...]} or [...]
+                # Normalize: {records:[...], total:int} or {data:[...]} or [...]
                 raw_list = None
                 if isinstance(result, list):
                     raw_list = result
                 elif isinstance(result, dict):
-                    for key in ("resources", "data", "items"):
+                    for key in ("records", "data", "items"):
                         if key in result and isinstance(result[key], list):
                             raw_list = result[key]
                             break
@@ -570,6 +581,7 @@ class HttpRescsAdapter(RescsAdapter):
                 if raw_list is not None:
                     self._last_error = None
                     self._healthy = True
+                    self._last_durable_success = True
                     out: list[Resource] = []
                     for item in raw_list:
                         try:
@@ -577,39 +589,44 @@ class HttpRescsAdapter(RescsAdapter):
                                 out.append(self._resource_from_dict(item))
                         except Exception:
                             continue
-                    # Sync fallback for offline use
-                    # Keep fallback consistent but don't replace if remote empty prematurely
                     return out
                 return self._fallback.list_resources()
             except Exception as exc:
                 self._last_error = str(exc)
                 self._healthy = False
+                self._last_durable_success = False
                 return self._fallback.list_resources()
 
     def persist_runtime(self, record: RuntimeRecord) -> None:
         with self._lock:
             self._fallback.persist_runtime(record)
             try:
-                self._request("POST", "/runtimes", record.to_dict())
+                # Runtimes are stored as records with entity_type="runtime"
+                data = record.to_dict()
+                data["entity_type"] = data.get("entity_type", "runtime")
+                self._request("POST", "/api/v1/records", data)
                 self._last_error = None
                 self._healthy = True
+                self._last_durable_success = True
             except Exception as exc:
                 self._last_error = str(exc)
                 self._healthy = False
+                self._last_durable_success = False
                 if not self._fallback_enabled:
                     raise
 
     def list_runtimes(self) -> list[RuntimeRecord]:
         with self._lock:
             try:
-                result = self._request("GET", "/runtimes")
+                # Query for runtime records
+                result = self._request("GET", "/api/v1/records", {"entity_type": "runtime"})
                 if result is None:
                     return self._fallback.list_runtimes()
                 raw_list = None
                 if isinstance(result, list):
                     raw_list = result
                 elif isinstance(result, dict):
-                    for key in ("runtimes", "records", "data", "items"):
+                    for key in ("records", "data", "items"):
                         if key in result and isinstance(result[key], list):
                             raw_list = result[key]
                             break
@@ -618,6 +635,7 @@ class HttpRescsAdapter(RescsAdapter):
                 if raw_list is not None:
                     self._last_error = None
                     self._healthy = True
+                    self._last_durable_success = True
                     out: list[RuntimeRecord] = []
                     for item in raw_list:
                         try:
@@ -630,12 +648,13 @@ class HttpRescsAdapter(RescsAdapter):
             except Exception as exc:
                 self._last_error = str(exc)
                 self._healthy = False
+                self._last_durable_success = False
                 return self._fallback.list_runtimes()
 
     def health(self) -> dict[str, Any]:
         with self._lock:
             try:
-                result = self._request("GET", "/health")
+                result = self._request("GET", "/api/v1/health")
                 if isinstance(result, dict):
                     # Remote health is authoritative when reachable
                     healthy = bool(result.get("healthy", True))
@@ -644,6 +663,7 @@ class HttpRescsAdapter(RescsAdapter):
                     # Normalize keys
                     result.setdefault("adapter", "http")
                     result.setdefault("endpoint", self._endpoint)
+                    result.setdefault("last_durable_success", self._last_durable_success)
                     return result
                 # If no JSON, still healthy if request succeeded
                 self._healthy = True
@@ -652,9 +672,10 @@ class HttpRescsAdapter(RescsAdapter):
                     "adapter": "http",
                     "endpoint": self._endpoint,
                     "healthy": True,
-                    "resources": len(self._fallback.list_resources()),
+                    "records": len(self._fallback.list_resources()),
                     "runtimes": len(self._fallback.list_runtimes()),
                     "devices": len(self._fallback.list_devices()),
+                    "last_durable_success": self._last_durable_success,
                 }
             except Exception as exc:
                 self._last_error = str(exc)
@@ -664,7 +685,8 @@ class HttpRescsAdapter(RescsAdapter):
                     "endpoint": self._endpoint,
                     "healthy": False,
                     "error": str(exc),
-                    "fallback_resources": len(self._fallback.list_resources()),
+                    "last_durable_success": self._last_durable_success,
+                    "fallback_records": len(self._fallback.list_resources()),
                     "fallback_runtimes": len(self._fallback.list_runtimes()),
                     "fallback_devices": len(self._fallback.list_devices()),
                 }
@@ -674,31 +696,42 @@ class HttpRescsAdapter(RescsAdapter):
         with self._lock:
             self._fallback.persist_device(snapshot)
             try:
-                self._request("POST", "/devices", snapshot)
+                # Devices stored as records with entity_type="device"
+                data = dict(snapshot)
+                data["entity_type"] = "device"
+                data["entity_id"] = data.pop("device_id")
+                self._request("POST", "/api/v1/records", data)
                 self._last_error = None
                 self._healthy = True
+                self._last_durable_success = True
             except Exception as exc:
                 self._last_error = str(exc)
                 self._healthy = False
+                self._last_durable_success = False
                 if not self._fallback_enabled:
                     raise
 
     def fetch_device(self, device_id: str) -> dict[str, Any] | None:
         with self._lock:
             try:
-                result = self._request("GET", f"/devices/{device_id}")
+                result = self._request("GET", f"/api/v1/records/{device_id}")
                 if result is None:
                     return self._fallback.fetch_device(device_id) if self._fallback_enabled else None
-                if isinstance(result, dict) and "device" in result and isinstance(result["device"], dict):
-                    result = result["device"]
-                if isinstance(result, dict) and result.get("device_id"):
+                if isinstance(result, dict) and "record" in result and isinstance(result["record"], dict):
+                    result = result["record"]
+                if isinstance(result, dict) and result.get("entity_id") == device_id:
                     self._last_error = None
                     self._healthy = True
-                    return result
+                    self._last_durable_success = True
+                    # Convert back to device format
+                    device = dict(result)
+                    device["device_id"] = device.pop("entity_id")
+                    return device
                 return self._fallback.fetch_device(device_id) if self._fallback_enabled else None
             except Exception as exc:
                 self._last_error = str(exc)
                 self._healthy = False
+                self._last_durable_success = False
                 if self._fallback_enabled:
                     return self._fallback.fetch_device(device_id)
                 raise
@@ -707,39 +740,44 @@ class HttpRescsAdapter(RescsAdapter):
         with self._lock:
             self._fallback.delete_device(device_id)
             try:
-                self._request("DELETE", f"/devices/{device_id}")
+                self._request("DELETE", f"/api/v1/records/{device_id}")
                 self._last_error = None
                 self._healthy = True
+                self._last_durable_success = True
             except Exception as exc:
                 self._last_error = str(exc)
                 self._healthy = False
+                self._last_durable_success = False
                 if not self._fallback_enabled:
                     raise
 
     def list_devices(self) -> list[dict[str, Any]]:
         with self._lock:
             try:
-                result = self._request("GET", "/devices")
+                result = self._request("GET", "/api/v1/records", {"entity_type": "device"})
                 if result is None:
                     return self._fallback.list_devices()
                 raw_list = None
                 if isinstance(result, list):
                     raw_list = result
                 elif isinstance(result, dict):
-                    for key in ("devices", "data", "items"):
+                    for key in ("records", "data", "items"):
                         if key in result and isinstance(result[key], list):
                             raw_list = result[key]
                             break
-                    if raw_list is None and result.get("device_id"):
+                    if raw_list is None and result.get("entity_id"):
                         raw_list = [result]
                 if raw_list is not None:
                     self._last_error = None
                     self._healthy = True
+                    self._last_durable_success = True
                     out: list[dict[str, Any]] = []
                     for item in raw_list:
                         try:
-                            if isinstance(item, dict) and item.get("device_id"):
-                                out.append(item)
+                            if isinstance(item, dict) and item.get("entity_id"):
+                                device = dict(item)
+                                device["device_id"] = device.pop("entity_id")
+                                out.append(device)
                         except Exception:
                             continue
                     return out
@@ -747,27 +785,22 @@ class HttpRescsAdapter(RescsAdapter):
             except Exception as exc:
                 self._last_error = str(exc)
                 self._healthy = False
+                self._last_durable_success = False
                 return self._fallback.list_devices()
 
     def clear(self) -> None:
         with self._lock:
             self._fallback.clear()
             try:
-                # Try standard clear endpoint, fall back to DELETE collection
-                try:
-                    self._request("POST", "/clear")
-                except Exception:
-                    self._request("DELETE", "/resources")
-                    self._request("DELETE", "/runtimes")
-                    try:
-                        self._request("DELETE", "/devices")
-                    except Exception:
-                        pass
+                # Try standard clear endpoint
+                self._request("POST", "/api/v1/clear")
                 self._last_error = None
                 self._healthy = True
+                self._last_durable_success = True
             except Exception as exc:
                 self._last_error = str(exc)
                 self._healthy = False
+                self._last_durable_success = False
                 if not self._fallback_enabled:
                     raise
 

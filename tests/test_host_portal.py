@@ -47,6 +47,13 @@ def _get(portal, path, *, method="GET", body=None):
     if body is not None:
         data = json.dumps(body).encode("utf-8")
         headers["Content-Type"] = "application/json"
+        headers["X-Core-Request"] = "true"
+        headers["Origin"] = portal.url
+    # For mutation endpoints, also add Host header
+    if method == "POST":
+        from urllib.parse import urlparse
+        parsed = urlparse(portal.url)
+        headers["Host"] = parsed.netloc
     request = urllib.request.Request(
         portal.url + path, data=data, headers=headers, method=method
     )
@@ -196,10 +203,12 @@ def test_unknown_endpoints_404(portal):
         assert exc.code == 404
     else:
         raise AssertionError("expected 404")
+    from urllib.parse import urlparse
+    parsed = urlparse(portal.url)
     request = urllib.request.Request(
         portal.url + "/api/agents/assign",
         data=json.dumps({}).encode(),
-        headers={"Content-Type": "application/json"},
+        headers={"Content-Type": "application/json", "X-Core-Request": "true", "Origin": portal.url, "Host": parsed.netloc},
         method="POST",
     )
     try:

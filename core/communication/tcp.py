@@ -1913,6 +1913,8 @@ class TcpTransport(Transport):
     def _recv_exact(
         self, conn: socket.socket, n: int, session: ConnectionSession | None = None
     ) -> bytes | None:
+        # Set socket timeout to prevent indefinite blocking
+        conn.settimeout(1.0)
         buf = b""
         while len(buf) < n:
             if session is not None:
@@ -1923,7 +1925,7 @@ class TcpTransport(Transport):
                     return None
             try:
                 chunk = conn.recv(n - len(buf))
-            except TimeoutError:
+            except socket.timeout:
                 if session is not None and (
                     session.is_lease_expired(self._time())
                     or self._time() - session.last_activity > IDLE_CONNECTION_TIMEOUT

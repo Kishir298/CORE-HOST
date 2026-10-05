@@ -155,7 +155,9 @@ def event_entry(event: Any) -> dict:
     payload = getattr(event, "payload", {}) or {}
     if not isinstance(payload, dict):
         payload = {"value": payload}
-    text = f"{getattr(event, 'event_type', '')} {payload}".lower()
+    # Redact payload before stringifying for summary
+    safe_payload = redact(payload)
+    text = f"{getattr(event, 'event_type', '')} {safe_payload}".lower()
     if "fail" in text or "error" in text or "denied" in text:
         severity = "error"
     elif "warn" in text or "expir" in text:
@@ -172,6 +174,6 @@ def event_entry(event: Any) -> dict:
             if hasattr(timestamp, "isoformat")
             else timestamp,
             "severity": severity,
-            "summary": str(payload)[:300],
+            "summary": str(safe_payload)[:300],
         }
     )
