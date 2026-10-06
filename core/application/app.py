@@ -1895,7 +1895,6 @@ class CoreApplication:
         placed = self._assign_agent(device_id=device_id, profile_id=profile_id)
         assignment = placed.get("assignment", {})
         agent = placed.get("agent", {})
-        profile = None
         try:
             profile = self.scheduler.get_profile(assignment.get("profile_id", ""))
         except Exception:
