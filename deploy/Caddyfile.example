@@ -1,0 +1,7 @@
+# Replace core.example.com with your domain and point its DNS to this host.
+# Run Caddy on the same machine as CORE-HOST; do not proxy the old 8765 portal.
+core.example.com {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:8780
+    header Strict-Transport-Security "max-age=31536000"
+}

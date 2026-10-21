@@ -1,0 +1,96 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Test / coverage
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# In-place virtual environment (python -m venv .)
+# Note: /Scripts/ is capital-S Windows venv; lower-case scripts/ is project scripts
+/Lib/
+/Include/
+/pyvenv.cfg
+/Scripts/
+!scripts/
+!scripts/**
+
+# IDE
+.vscode/
+.idea/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Local configuration
+config/*.local.*
+config/*.secret.*
+config/secrets/
+# Generic YAML secrets; tracked core.yaml / core.lan.example.yaml remain tracked
+config/*.yaml
+device.json
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Logs
+*.log
+
+# Tooling caches
+.mypy_cache/
+.ruff_cache/
+.pyre/
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# C.O.R.E. runtime persistence (Windows host)
+var/
+*.tmp
+
+# TLS material (never commit certificates / private keys)
+*.crt
+*.cer
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Remembered external-device files may live in-repo during tests only;
+# real device files belong in the home directory, never in git.
+.risarms-device.json
+*-device.json
+
+# Tool backups
+opencode.json.backup
+.aider*
+
+# Local LAN deployment (machine paths, never commit)
+config/core.lan.yaml
+config/*.lan.yaml
+
+# Stagnant artifacts
+.pytest_cache/
+__pycache__/
+AUDIT_REPORT.md
+temp_*.txt
+test_output.txt
+test_results.txt
+
+# Sensitive files
+tls/
+*.pem
+*.key
+*.crt
