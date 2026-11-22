@@ -34,6 +34,12 @@ except ImportError:  # pragma: no cover - extra not installed
     HAVE_TIVISS = False
 
 
+def make_sock_dir(prefix: str) -> Path:
+    """Short temp dir for AF_UNIX sockets (macOS ~104-byte path limit)."""
+    base = "/tmp" if Path("/tmp").is_dir() else None
+    return Path(tempfile.mkdtemp(prefix=prefix, dir=base))
+
+
 def make_manager(*permissions: Permission) -> SecurityManager:
     manager = SecurityManager()
     manager.register_identity(
@@ -191,7 +197,7 @@ def test_daemon_pdp_rejects_bad_timeout():
 
 @pytest.mark.skipif(not HAVE_TIVISS, reason="TIVISS security packages missing")
 def test_daemon_pdp_delegates_to_tiviss_daemon():
-    sock_dir = Path(tempfile.mkdtemp(prefix="core-pdp-", dir="/tmp"))
+    sock_dir = make_sock_dir("core-pdp-")
     try:
         socket_path = str(sock_dir / "pdp.sock")
         server = PDPServer(
@@ -227,7 +233,7 @@ def test_daemon_pdp_delegates_to_tiviss_daemon():
 
 @pytest.mark.skipif(not HAVE_TIVISS, reason="TIVISS security packages missing")
 def test_daemon_pdp_unavailable_fails_closed():
-    sock_dir = Path(tempfile.mkdtemp(prefix="core-pdp-", dir="/tmp"))
+    sock_dir = make_sock_dir("core-pdp-")
     try:
         socket_path = str(sock_dir / "absent.sock")
         manager = make_manager(Permission.READ)  # local would allow
@@ -243,7 +249,7 @@ def test_daemon_pdp_unavailable_fails_closed():
 
 @pytest.mark.skipif(not HAVE_TIVISS, reason="TIVISS security packages missing")
 def test_daemon_pdp_direct_allowed_calls():
-    sock_dir = Path(tempfile.mkdtemp(prefix="core-pdp-", dir="/tmp"))
+    sock_dir = make_sock_dir("core-pdp-")
     try:
         socket_path = str(sock_dir / "pdp.sock")
         server = PDPServer(
