@@ -8,6 +8,7 @@ daemon mode delegates to a real local T.I.V.I.S.S. PDP daemon (started in
 from __future__ import annotations
 
 import shutil
+import socket
 import tempfile
 from pathlib import Path
 
@@ -32,6 +33,16 @@ try:
     HAVE_TIVISS = True
 except ImportError:  # pragma: no cover - extra not installed
     HAVE_TIVISS = False
+
+# The T.I.V.I.S.S. PDP daemon transport is AF_UNIX-only by design. CPython
+# does not expose ``socket.AF_UNIX`` on Windows, so the *listening-daemon*
+# tests cannot run there. Embedded-PDP and fail-closed coverage still runs
+# on every platform; daemon coverage runs on Linux and macOS.
+HAVE_AF_UNIX = hasattr(socket, "AF_UNIX")
+requires_af_unix = pytest.mark.skipif(
+    not HAVE_AF_UNIX,
+    reason="T.I.V.I.S.S. PDP daemon transport is AF_UNIX-only; unavailable on this platform",
+)
 
 
 def make_sock_dir(prefix: str) -> Path:
@@ -190,12 +201,29 @@ def test_daemon_pdp_rejects_bad_timeout():
         DaemonAuthorizationPDP(timeout=0)
 
 
+def test_daemon_pdp_reports_unsupported_transport(monkeypatch):
+    """A platform without AF_UNIX fails closed with an actionable message.
+
+    This runs everywhere: the capability flag is patched so the Windows
+    behaviour is asserted on Linux/macOS CI too.
+    """
+    from core.security import pdp as pdp_module
+
+    monkeypatch.setattr(pdp_module, "AF_UNIX_SUPPORTED", False)
+    delegate = DaemonAuthorizationPDP("/tmp/absent.sock", timeout=1.0)
+    with pytest.raises(PDPUnavailableError, match="Unix domain socket"):
+        delegate.allowed("asis", "read")
+    with pytest.raises(PDPUnavailableError, match="security.mode=embedded"):
+        delegate.allowed("asis", "read")
+
+
 # --------------------------------------------------------------------------- #
 # Daemon mode against a real local PDP daemon
 # --------------------------------------------------------------------------- #
 
 
 @pytest.mark.skipif(not HAVE_TIVISS, reason="TIVISS security packages missing")
+@requires_af_unix
 def test_daemon_pdp_delegates_to_tiviss_daemon():
     sock_dir = make_sock_dir("core-pdp-")
     try:
@@ -248,6 +276,7 @@ def test_daemon_pdp_unavailable_fails_closed():
 
 
 @pytest.mark.skipif(not HAVE_TIVISS, reason="TIVISS security packages missing")
+@requires_af_unix
 def test_daemon_pdp_direct_allowed_calls():
     sock_dir = make_sock_dir("core-pdp-")
     try:

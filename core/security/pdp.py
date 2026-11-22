@@ -18,6 +18,7 @@ imported lazily so embedded-only deployments never need them.
 
 from __future__ import annotations
 
+import socket
 from collections.abc import Callable
 from typing import Any, Protocol
 
@@ -40,6 +41,13 @@ class PDPUnavailableError(PDPError):
 
     Callers must fail closed (deny / raise) when they see this.
     """
+
+
+#: The T.I.V.I.S.S. PDP daemon speaks AF_UNIX (Unix domain sockets) only.
+#: CPython does not expose ``socket.AF_UNIX`` on Windows, so daemon mode is
+#: unsupported there and must fail closed with an actionable message instead
+#: of an ``AttributeError`` from deep inside the IPC client.
+AF_UNIX_SUPPORTED = hasattr(socket, "AF_UNIX")
 
 
 class AuthorizationPDP(Protocol):
@@ -105,6 +113,14 @@ class DaemonAuthorizationPDP:
 
     def _get_client(self) -> Any:
         if self._client is None:
+            if not AF_UNIX_SUPPORTED:
+                raise PDPUnavailableError(
+                    "security.mode=daemon requires the T.I.V.I.S.S. PDP daemon's "
+                    "Unix domain socket transport (AF_UNIX), which this "
+                    "platform's Python does not provide. Use "
+                    "security.mode=embedded here, or run the PDP daemon on a "
+                    "Linux/macOS host."
+                )
             try:
                 from tiviss_security_client import SecurityClient
             except ImportError as exc:
