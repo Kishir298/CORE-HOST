@@ -211,10 +211,11 @@ def test_daemon_pdp_reports_unsupported_transport(monkeypatch):
 
     monkeypatch.setattr(pdp_module, "AF_UNIX_SUPPORTED", False)
     delegate = DaemonAuthorizationPDP("/tmp/absent.sock", timeout=1.0)
-    with pytest.raises(PDPUnavailableError, match="Unix domain socket"):
+    with pytest.raises(PDPUnavailableError, match="daemon unavailable") as excinfo:
         delegate.allowed("asis", "read")
-    with pytest.raises(PDPUnavailableError, match="security.mode=embedded"):
-        delegate.allowed("asis", "read")
+    # The message must name the missing transport and the working alternative.
+    assert "Unix domain socket" in str(excinfo.value)
+    assert "security.mode=embedded" in str(excinfo.value)
 
 
 # --------------------------------------------------------------------------- #

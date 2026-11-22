@@ -115,11 +115,11 @@ class DaemonAuthorizationPDP:
         if self._client is None:
             if not AF_UNIX_SUPPORTED:
                 raise PDPUnavailableError(
-                    "security.mode=daemon requires the T.I.V.I.S.S. PDP daemon's "
-                    "Unix domain socket transport (AF_UNIX), which this "
-                    "platform's Python does not provide. Use "
-                    "security.mode=embedded here, or run the PDP daemon on a "
-                    "Linux/macOS host."
+                    "security daemon unavailable: security.mode=daemon requires "
+                    "the T.I.V.I.S.S. PDP daemon's Unix domain socket transport "
+                    "(AF_UNIX), which this platform's Python does not provide. "
+                    "Use security.mode=embedded here, or run the PDP daemon on "
+                    "a Linux/macOS host."
                 )
             try:
                 from tiviss_security_client import SecurityClient
