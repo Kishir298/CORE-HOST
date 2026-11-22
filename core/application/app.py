@@ -472,6 +472,53 @@ class CoreApplication:
 
         self.security_policy.set_enforced(bool(enabled))
 
+        # Authorization PDP: embedded (local membership check, default) or
+        # a local T.I.V.I.S.S. PDP daemon.  An unreachable daemon fails
+        # closed at decision time (PDPUnavailableError; has_permission
+        # returns False).
+        from core.security.pdp import create_pdp
+
+        pdp_mode = self.configuration.get("security.mode", "embedded")
+        if not isinstance(pdp_mode, str):
+            raise ValueError(
+                "security.mode must be a string ('embedded' | 'daemon')."
+            )
+        pdp_mode = pdp_mode.strip().lower()
+        if pdp_mode not in ("embedded", "daemon"):
+            raise ValueError(
+                "security.mode must be 'embedded' or 'daemon'; "
+                f"got {pdp_mode!r}."
+            )
+        pdp_socket = self.configuration.get("security.pdp_socket", None)
+        if pdp_socket is not None and not isinstance(pdp_socket, str):
+            raise ValueError("security.pdp_socket must be a string.")
+        pdp_timeout = self.configuration.get("security.pdp_timeout_s", 5.0)
+        try:
+            pdp_timeout = float(pdp_timeout)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "security.pdp_timeout_s must be a number."
+            ) from exc
+        if pdp_timeout <= 0:
+            raise ValueError("security.pdp_timeout_s must be > 0.")
+        self.security.set_pdp(
+            create_pdp(
+                pdp_mode,
+                manager=self.security,
+                socket_path=pdp_socket or None,
+                timeout=pdp_timeout,
+            )
+        )
+        if pdp_mode == "daemon":
+            self.logger.info(
+                "Security PDP: daemon mode"
+                + (
+                    f" at {pdp_socket}"
+                    if pdp_socket
+                    else " (default socket)"
+                )
+            )
+
         # Configure authentication provider if specified.
         provider_name = self.configuration.get("security.provider", None)
         if provider_name is None:

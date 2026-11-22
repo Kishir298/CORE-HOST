@@ -236,16 +236,21 @@ class DataOrganizer:
         cross_owner = False
         if self._security is not None:
             try:
-                identity = self._security.get_identity(sender)
+                self._security.get_identity(sender)
             except Exception:
                 return False, (DATA_ACCESS_DENIED, "Access denied.")
             try:
                 from core.security.models import Permission
 
-                permissions = getattr(identity, "permissions", frozenset()) or frozenset()
-                if Permission.READ not in set(permissions):
+                # Route both checks through the security manager so an
+                # attached PDP (embedded or daemon) stays authoritative.
+                if not self._security.has_permission(
+                    sender, Permission.READ
+                ):
                     return False, (DATA_ACCESS_DENIED, "Access denied.")
-                cross_owner = Permission.ADMIN in set(permissions)
+                cross_owner = self._security.has_permission(
+                    sender, Permission.ADMIN
+                )
             except Exception:
                 return False, (DATA_ACCESS_DENIED, "Access denied.")
         if (

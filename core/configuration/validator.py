@@ -301,6 +301,30 @@ class ConfigurationValidator:
                     sec["provider"], str
                 ):
                     errors.append("security.provider must be a string.")
+                # T.I.V.I.S.S. PDP integration (embedded | daemon).
+                if "mode" in sec and sec["mode"] not in (
+                    "embedded",
+                    "daemon",
+                ):
+                    errors.append(
+                        "security.mode must be 'embedded' or 'daemon'."
+                    )
+                if "pdp_socket" in sec and not isinstance(
+                    sec["pdp_socket"], str
+                ):
+                    errors.append("security.pdp_socket must be a string.")
+                if "pdp_timeout_s" in sec:
+                    timeout = sec["pdp_timeout_s"]
+                    if not isinstance(timeout, (int, float)) or isinstance(
+                        timeout, bool
+                    ):
+                        errors.append(
+                            "security.pdp_timeout_s must be a number."
+                        )
+                    elif timeout <= 0:
+                        errors.append(
+                            "security.pdp_timeout_s must be > 0."
+                        )
                 # Plaintext token logging is strictly opt-in (dev testing).
                 if "log_external_device_tokens" in sec and not isinstance(
                     sec["log_external_device_tokens"], bool

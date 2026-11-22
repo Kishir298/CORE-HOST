@@ -13,7 +13,17 @@ dependencies = ["PyYAML>=6.0", "websockets>=12.0"]
 core-host = "core.entrypoint:main"
 
 [project.optional-dependencies]
-test = ["pytest>=8.0"]
+# The T.I.V.I.S.S. security packages (public repos, pinned commits) are
+# test-only here: the default embedded PDP needs nothing extra, while the
+# daemon-mode PDP tests run a real local PDP daemon. Production daemon
+# deployments install the same four packages at runtime.
+test = [
+    "pytest>=8.0",
+    "tiviss-security-protocol @ git+https://github.com/Kishir298/TIVISS-HOST.git@d3c5b65df332416af942a7abf60133a03ca05665#subdirectory=security/protocol",
+    "tiviss-security-ipc @ git+https://github.com/Kishir298/TIVISS-HOST.git@d3c5b65df332416af942a7abf60133a03ca05665#subdirectory=security/ipc",
+    "tiviss-security-host @ git+https://github.com/Kishir298/TIVISS-HOST.git@d3c5b65df332416af942a7abf60133a03ca05665#subdirectory=security/host",
+    "tiviss-security-client @ git+https://github.com/Kishir298/TIVISS-HOST.git@d3c5b65df332416af942a7abf60133a03ca05665#subdirectory=security/client",
+]
 monitoring = ["prometheus-client>=0.20", "fastapi>=0.110"]
 
 [tool.setuptools.packages.find]

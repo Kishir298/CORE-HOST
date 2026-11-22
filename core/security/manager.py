@@ -6,6 +6,7 @@ from typing import Any
 from core.errors import CoreError
 
 from .models import Identity, Permission
+from .pdp import PDPUnavailableError
 
 
 class SecurityError(CoreError):
@@ -42,7 +43,12 @@ class SecurityManager:
     without hardcoding credentials.
     """
 
-    def __init__(self, provider: Any | None = None) -> None:
+    def __init__(
+        self,
+        provider: Any | None = None,
+        *,
+        pdp: Any | None = None,
+    ) -> None:
         from .provider import ExistenceAuthenticationProvider
 
         self._identities: dict[str, Identity] = {}
@@ -56,6 +62,35 @@ class SecurityManager:
 
         self._event_handlers: list[SecurityEventHandler] = []
         self._provider = provider or ExistenceAuthenticationProvider()
+        if pdp is not None and not callable(getattr(pdp, "allowed", None)):
+            raise TypeError(
+                "PDP must implement allowed(identity_id, permission)."
+            )
+        self._pdp = pdp
+
+    @property
+    def pdp(self) -> Any | None:
+        """Return the active authorization PDP (None = local membership)."""
+
+        with self._lock:
+            return self._pdp
+
+    def set_pdp(self, pdp: Any | None) -> None:
+        """Attach or detach the authorization PDP.
+
+        ``None`` restores the historical local membership check.  A PDP
+        must expose ``allowed(identity_id, permission) -> bool``; a daemon
+        PDP may raise ``PDPUnavailableError`` when it cannot be reached
+        (callers fail closed).
+        """
+
+        if pdp is not None and not callable(getattr(pdp, "allowed", None)):
+            raise TypeError(
+                "PDP must implement allowed(identity_id, permission)."
+            )
+
+        with self._lock:
+            self._pdp = pdp
 
     def start(self) -> None:
         """Start the security manager."""
@@ -284,7 +319,13 @@ class SecurityManager:
         identity_id: str,
         permission: Permission,
     ) -> bool:
-        """Verify that an identity has a specific permission."""
+        """Verify that an identity has a specific permission.
+
+        The decision comes from the attached PDP when one is configured
+        (embedded or daemon); otherwise the historical local membership
+        check runs.  The decision itself happens outside the manager lock
+        because a daemon PDP may block on socket I/O.
+        """
 
         with self._lock:
             self._require_active()
@@ -304,8 +345,17 @@ class SecurityManager:
 
                 raise
 
-            if permission not in identity.permissions:
-                self._authorization_failures += 1
+            pdp = self._pdp
+
+        if pdp is None:
+            allowed = permission in identity.permissions
+        else:
+            try:
+                allowed = bool(pdp.allowed(identity_id, permission.value))
+            except PDPUnavailableError:
+                # Fail closed: an unreachable decision point is not a grant.
+                with self._lock:
+                    self._authorization_failures += 1
 
                 self._emit_event(
                     "AUTHORIZATION_FAILED",
@@ -313,10 +363,22 @@ class SecurityManager:
                     False,
                 )
 
-                raise AuthorizationError(
-                    f"Identity '{identity_id}' lacks permission "
-                    f"'{permission.value}'"
-                )
+                raise
+
+        if not allowed:
+            with self._lock:
+                self._authorization_failures += 1
+
+            self._emit_event(
+                "AUTHORIZATION_FAILED",
+                identity_id,
+                False,
+            )
+
+            raise AuthorizationError(
+                f"Identity '{identity_id}' lacks permission "
+                f"'{permission.value}'"
+            )
 
         self._emit_event(
             "AUTHORIZATION_SUCCEEDED",
@@ -331,13 +393,24 @@ class SecurityManager:
         identity_id: str,
         permission: Permission,
     ) -> bool:
-        """Return whether an identity has a permission."""
+        """Return whether an identity has a permission.
+
+        A daemon PDP that cannot be reached fails closed to ``False``.
+        """
 
         with self._lock:
             self._require_active()
 
             identity = self.get_identity(identity_id)
+            pdp = self._pdp
+
+        if pdp is None:
             return permission in identity.permissions
+
+        try:
+            return bool(pdp.allowed(identity_id, permission.value))
+        except PDPUnavailableError:
+            return False
 
     def list_identities(self) -> list[Identity]:
         """Return all registered identities."""
