@@ -1,4 +1,8 @@
-# C.O.R.E. Windows Firewall
+# C.O.R.E. Windows Firewall (historical)
+
+> [!WARNING] **Not a 0.6.0 deployment target.** The supported server firewall is
+> nftables on Void Linux (`deployment/void/etc/nftables.d/risarms.nft` in
+> `RISARMS-HOST`). This page is retained for the historical Windows host.
 
 When C.O.R.E. exposes `TcpTransport` on `0.0.0.0` for external devices
 (phones, watches, R.O.V.E.R.T., sensors) a firewall rule is required.

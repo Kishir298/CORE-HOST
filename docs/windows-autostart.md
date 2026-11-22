@@ -1,6 +1,11 @@
-# C.O.R.E. Windows Autostart
+# C.O.R.E. Windows Autostart (historical)
 
-C.O.R.E. is designed to run **24/7** on the Windows 11 laptop that co-hosts
+> [!WARNING] **Superseded.** Continuous operation on the supported server is
+> provided by runit (`risarms-core`, `risarms-rescs`, `caddy`) installed from the
+> Void bundle in `RISARMS-HOST`. This page applies only to the historical
+> Windows host.
+
+C.O.R.E. is designed to run **24/7** on the Windows 11 laptop that co-hosted
 R.E.S.C.S. This document describes how to register C.O.R.E. for automatic
 start without manual `py -m core start`.
 

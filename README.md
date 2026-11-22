@@ -4,19 +4,26 @@
 
 **Installed terminal command:** `core-host`. See [installation and commands](docs/terminal-commands.md).
 
-## Authenticated web portal
+## Server deployment vs local development
 
-Run `run-core.cmd` on Windows, or `sh run-core.command` on macOS. The launcher
-opens the portal at `http://127.0.0.1:8780` and prints a first-owner setup key.
-Profiles, service tasks, live output and RESCS records are available there.
-See [web setup and HTTPS hosting](docs/web-portal.md) for prerequisites, service
-limits and deployment. This release has not been publicly deployed.
+The supported **server** deployment is Void Linux x86_64 glibc with runit; it is
+installed from the assembled release bundle by `RISARMS-HOST`:
 
+```bash
+sudo ./deployment/void/install.sh      # from the extracted CORE-Server-<version>-void-x86_64 archive
+```
 
-**Version:** `0.4.0`
-**Host Portal:** `v0.4.0` (aligned with package; see `docs/host-portal.md`, `core/portal/server.py` `CoreHostPortal/0.4.0`; wire protocol stays 0.3.0-compatible)
-**Status:** **Implementation Complete · Physical LAN Validation Pending**
-**Platform:** Windows 11 host · Python `>=3.10`
+`run-core.cmd` (Windows) and `sh run-core.command` (macOS/Linux) are **local
+development launchers only**. They start the host in the foreground, open the
+portal at `http://127.0.0.1:8780` and print a first-owner setup key. They are
+not a server deployment mechanism and are not covered by the 0.6.0 release
+target. See [web setup and HTTPS hosting](docs/web-portal.md) for prerequisites
+and service limits.
+
+**Version:** `0.6.0`
+**Host Portal:** `v0.4.0` (portal contract; see `docs/host-portal.md`)
+**Status:** **Implementation Complete · Void and Physical LAN Validation Pending**
+**Platforms:** Void Linux x86_64 glibc/runit (server release) · Windows/macOS/Linux x86_64 (local development, legacy client) · Python `>=3.10`
 **R.I.S.A.R.M.S. subsystem:** C.O.R.E.-HOST (server side)
 
 > This repository is the **host/server side** of C.O.R.E. The external-device
@@ -28,9 +35,9 @@ C.O.R.E. is the lifecycle-aware, transport-agnostic orchestration and communicat
 
 It provides runtime orchestration, device communication, routing, services, resource management, organization, events, health monitoring, security, R.E.S.C.S. integration, persistent device registration, data distribution, and capability-driven agent scheduling.
 
-C.O.R.E. is designed to run continuously on a Windows host alongside **R.E.S.C.S.**, while providing services and agent execution for connected R.I.S.A.R.M.S. devices such as Macs, phones, tablets, watches, and R.O.V.E.R.T.
+C.O.R.E. is designed to run continuously on the **Void Linux** server host alongside **R.E.S.C.S.**, while providing services and agent execution for connected R.I.S.A.R.M.S. devices such as Macs, phones, tablets, watches, and R.O.V.E.R.T. (Windows-host deployment is historical; see the banner above.)
 
-> **Current status:** All intended v0.3.0 software components are implemented and covered by automated testing (historical v0.3.0 milestone; current package is v0.4.0). Physical Windows ↔ Mac LAN validation and extended 24/7 operational validation remain deployment-validation tasks and must not be confused with automated localhost testing.
+> **Current status:** All intended v0.3.0 software components are implemented and covered by automated testing (historical v0.3.0 milestone; current package is v0.6.0). Void server deployment validation (install, reboot, runit, storage failure, rollback), physical LAN validation and extended 24/7 operational validation remain deployment-validation tasks and must not be confused with automated localhost testing.
 
 ---
 
@@ -912,9 +919,13 @@ The runtime `start` command launches the foreground control loop.
 
 ---
 
-# 25. Windows Host
+# 25. Windows Host (historical)
 
-C.O.R.E. is designed around a Windows 11 host that can co-host R.E.S.C.S.
+> [!WARNING] **Not a 0.6.0 deployment target.** The supported host is Void Linux
+> x86_64 with runit; see `../RISARMS-HOST/deployment/void/`. This section is
+> retained as history and must not be used to plan a new installation.
+
+C.O.R.E. was originally designed around a Windows 11 host that could co-host R.E.S.C.S.
 
 Recommended architecture:
 
@@ -1009,11 +1020,17 @@ Credentials, tokens, certificates and private keys must not be committed to Git.
 
 ---
 
-# 28. Windows Autostart
+# 28. Windows Autostart (historical)
+
+> [!WARNING] **Superseded.** Continuous server operation is provided by the Void
+> runit services `risarms-core`, `risarms-rescs` and `caddy`, installed by
+> `deployment/void/install.sh` and enabled with `ln -s /etc/sv/<service> /var/service/`.
+> The Task Scheduler/NSSM instructions below apply only to the historical
+> Windows host.
 
 C.O.R.E. is designed for continuous operation.
 
-Recommended Windows deployment uses:
+Historical Windows deployment used:
 
 * Windows Task Scheduler
 * startup/logon trigger
