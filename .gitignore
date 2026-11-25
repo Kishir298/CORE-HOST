@@ -109,3 +109,6 @@ tls/
 
 # PyInstaller spec output (built by the umbrella release workflow)
 *.spec
+
+# Local secret stores
+secrets/
